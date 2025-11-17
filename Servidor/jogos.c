@@ -21,7 +21,7 @@ int carregarJogos(const char *ficheiro, Jogo jogos[], int maxJogos) {
     printf("DEBUG: Ficheiro aberto com sucesso!\n");
 
     int count = 0;
-    char linha[300];
+    char linha[300]; //linha so pode ter ate 300 caracteres
     int linha_num = 0;
     
     while (fgets(linha, sizeof(linha), f) && count < maxJogos) {
@@ -62,9 +62,11 @@ int carregarJogos(const char *ficheiro, Jogo jogos[], int maxJogos) {
             continue;
         }
         
-        strncpy(jogos[count].tabuleiro, token, 81);
+        strncpy(jogos[count].tabuleiro, token, 81); //copia os 81 chars de token para tabuleiro
         jogos[count].tabuleiro[81] = '\0';
         
+
+        //verufica solucao
         token = strtok(NULL, ",");
         if (!token) {
             printf("DEBUG: Erro no parsing da linha %d - sem solução\n", linha_num);
@@ -78,7 +80,7 @@ int carregarJogos(const char *ficheiro, Jogo jogos[], int maxJogos) {
         }
         
         strncpy(jogos[count].solucao, token, 81);
-        jogos[count].solucao[81] = '\0';
+        jogos[count].solucao[81] = '\0'; //garante que termina a string
         count++;
         
         if (count <= 3 || count == maxJogos) {
