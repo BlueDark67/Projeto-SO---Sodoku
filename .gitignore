@@ -61,3 +61,14 @@ core.*
 # Compiled documentation
 *.pdf
 !docs/*.pdf
+
+# Ignorar tudo no diretório home exceto ProjetoSOReorganizado
+.bash_history
+.cache/
+.dotnet/
+.gitconfig
+.vscode-server/
+.wget-hsts
+ProjetoSO/
+aula6/
+aula7/

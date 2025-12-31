@@ -40,13 +40,23 @@ $(BUILD_DIR):
 
 # A regra 'all' (default) compila ambos
 all: $(BUILD_DIR) $(TARGET_SERVER) $(TARGET_CLIENT)
+	@rm -f $(SERVER_OBJS) $(CLIENT_OBJS) $(COMMON_OBJS)
+	@echo "✓ Ficheiros .o removidos"
 
-# Regra para compilar o SERVIDOR
+# Regra para compilar apenas o SERVIDOR
+server: $(BUILD_DIR) $(TARGET_SERVER)
+	@rm -f $(SERVER_OBJS) $(COMMON_OBJS)
+	@echo "✓ Ficheiros .o removidos"
+
 $(TARGET_SERVER): $(SERVER_OBJS) $(COMMON_OBJS)
 	$(CC) $(CFLAGS) -o $(TARGET_SERVER) $(SERVER_OBJS) $(COMMON_OBJS) -lpthread
 	@echo "✓ Servidor compilado: $(TARGET_SERVER)"
 
-# Regra para compilar o CLIENTE
+# Regra para compilar apenas o CLIENTE
+client: $(BUILD_DIR) $(TARGET_CLIENT)
+	@rm -f $(CLIENT_OBJS) $(COMMON_OBJS)
+	@echo "✓ Ficheiros .o removidos"
+
 $(TARGET_CLIENT): $(CLIENT_OBJS) $(COMMON_OBJS)
 	$(CC) $(CFLAGS) -o $(TARGET_CLIENT) $(CLIENT_OBJS) $(COMMON_OBJS)
 	@echo "✓ Cliente compilado: $(TARGET_CLIENT)"
@@ -89,4 +99,4 @@ run-client: $(TARGET_CLIENT)
 	$(TARGET_CLIENT)
 
 # Diz ao Make que estas regras não criam ficheiros
-.PHONY: all clean rebuild run-server run-client
+.PHONY: all server client clean rebuild run-server run-client
