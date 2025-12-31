@@ -1,61 +1,69 @@
-# Makefile para Servidor e Cliente Sudoku - Fase 2
+# Makefile para Servidor e Cliente Sudoku - Projeto SO
+# Estrutura reorganizada com common/, servidor/, cliente/
 
 # Compilador e flags
 CC = gcc
-# -g para debug, -I. diz ao compilador para procurar ficheiros .h na pasta atual (root)
-CFLAGS = -Wall -Wextra -g -I.
+# -I para adicionar diretórios de includes
+CFLAGS = -Wall -Wextra -g -Icommon/include -Iservidor/include -Icliente/include
 
 # --- Alvos Principais ---
-TARGET_SERVER = servidorSudoku
-TARGET_CLIENT = clienteSudoku
+TARGET_SERVER = build/servidor
+TARGET_CLIENT = build/cliente
 
-# --- Ficheiros Partilhados ---
-# O util.o será usado por ambos
-UTIL_O = util.o
+# --- Diretórios ---
+COMMON_SRC = common/src
+COMMON_INC = common/include
+SERVER_SRC = servidor/src
+SERVER_INC = servidor/include
+CLIENT_SRC = cliente/src
+CLIENT_INC = cliente/include
+BUILD_DIR = build
+
+# --- Ficheiros Partilhados (common) ---
+COMMON_SRCS = $(COMMON_SRC)/util.c
+COMMON_OBJS = $(COMMON_SRCS:.c=.o)
 
 # --- Ficheiros do SERVIDOR ---
-SDIR = Servidor
-# Lista de todos os ficheiros .c na pasta servidor/
-SERVER_SRCS = $(SDIR)/main.c $(SDIR)/config_servidor.c $(SDIR)/jogos.c $(SDIR)/logs.c $(SDIR)/util-stream-server.c
-# Converte a lista de .c para .o (ex: servidor/main.c -> servidor/main.o)
+SERVER_SRCS = $(SERVER_SRC)/main.c $(SERVER_SRC)/config_servidor.c $(SERVER_SRC)/jogos.c $(SERVER_SRC)/logs.c $(SERVER_SRC)/util-stream-server.c
 SERVER_OBJS = $(SERVER_SRCS:.c=.o)
 
 # --- Ficheiros do CLIENTE ---
-CDIR = Cliente
-# Lista de todos os ficheiros .c na pasta cliente/
-CLIENT_SRCS = $(CDIR)/main_cliente.c $(CDIR)/config_cliente.c $(CDIR)/util-stream-cliente.c
-# Converte a lista de .c para .o
+CLIENT_SRCS = $(CLIENT_SRC)/main_cliente.c $(CLIENT_SRC)/config_cliente.c $(CLIENT_SRC)/util-stream-cliente.c
 CLIENT_OBJS = $(CLIENT_SRCS:.c=.o)
 
 
 # --- Regras Principais ---
 
+# Cria o diretório build se não existir
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
 # A regra 'all' (default) compila ambos
-all: $(TARGET_SERVER) $(TARGET_CLIENT)
+all: $(BUILD_DIR) $(TARGET_SERVER) $(TARGET_CLIENT)
 
 # Regra para compilar o SERVIDOR
-$(TARGET_SERVER): $(SERVER_OBJS) $(UTIL_O)
-	$(CC) $(CFLAGS) -o $(TARGET_SERVER) $(SERVER_OBJS) $(UTIL_O) -lpthread
-	@echo "✓ Servidor compilado: ./$(TARGET_SERVER)"
+$(TARGET_SERVER): $(SERVER_OBJS) $(COMMON_OBJS)
+	$(CC) $(CFLAGS) -o $(TARGET_SERVER) $(SERVER_OBJS) $(COMMON_OBJS) -lpthread
+	@echo "✓ Servidor compilado: $(TARGET_SERVER)"
 
 # Regra para compilar o CLIENTE
-$(TARGET_CLIENT): $(CLIENT_OBJS) $(UTIL_O)
-	$(CC) $(CFLAGS) -o $(TARGET_CLIENT) $(CLIENT_OBJS) $(UTIL_O)
-	@echo "✓ Cliente compilado: ./$(TARGET_CLIENT)"
+$(TARGET_CLIENT): $(CLIENT_OBJS) $(COMMON_OBJS)
+	$(CC) $(CFLAGS) -o $(TARGET_CLIENT) $(CLIENT_OBJS) $(COMMON_OBJS)
+	@echo "✓ Cliente compilado: $(TARGET_CLIENT)"
 
 
 # --- Regras de Compilação (.c para .o) ---
 
-# Regra para compilar o util.c partilhado
-$(UTIL_O): util.c util.h
-	$(CC) $(CFLAGS) -c util.c -o $(UTIL_O)
-
-# Regra "mágica" para compilar qualquer .c da pasta servidor/
-$(SDIR)/%.o: $(SDIR)/%.c
+# Compila ficheiros em common/src/
+$(COMMON_SRC)/%.o: $(COMMON_SRC)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Regra "mágica" para compilar qualquer .c da pasta cliente/
-$(CDIR)/%.o: $(CDIR)/%.c
+# Compila ficheiros em servidor/src/
+$(SERVER_SRC)/%.o: $(SERVER_SRC)/%.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Compila ficheiros em cliente/src/
+$(CLIENT_SRC)/%.o: $(CLIENT_SRC)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 
@@ -63,8 +71,9 @@ $(CDIR)/%.o: $(CDIR)/%.c
 
 # Regra para limpar tudo
 clean:
-	rm -f $(TARGET_SERVER) $(TARGET_CLIENT) $(UTIL_O) $(SERVER_OBJS) $(CLIENT_OBJS)
-	@echo "Ficheiros limpos"
+	rm -f $(TARGET_SERVER) $(TARGET_CLIENT) $(COMMON_OBJS) $(SERVER_OBJS) $(CLIENT_OBJS)
+	rm -rf $(BUILD_DIR)
+	@echo "✓ Ficheiros limpos"
 
 # Regra para limpar e recompilar tudo
 rebuild: clean all
@@ -72,12 +81,12 @@ rebuild: clean all
 # Regra para executar o servidor
 run-server: $(TARGET_SERVER)
 	@echo "--- A executar o Servidor ---"
-	./$(TARGET_SERVER)
+	$(TARGET_SERVER)
 
 # Regra para executar o cliente
 run-client: $(TARGET_CLIENT)
 	@echo "--- A executar o Cliente ---"
-	./$(TARGET_CLIENT)
+	$(TARGET_CLIENT)
 
 # Diz ao Make que estas regras não criam ficheiros
 .PHONY: all clean rebuild run-server run-client

@@ -1,0 +1,63 @@
+# ============================================
+# .gitignore - Projeto Sudoku Cliente/Servidor
+# ============================================
+
+# Executáveis
+build/
+*.exe
+cliente
+servidor
+servidorSudoku
+clienteSudoku
+
+# Ficheiros objeto
+*.o
+*.a
+*.so
+*.dylib
+
+# Logs (todos são temporários)
+logs/**/*.log
+logs/**/*.log_
+*.log
+*.log_
+
+# Ficheiros temporários
+*.tmp
+*.swp
+*.swo
+*~
+.*.swp
+
+# IDE - Visual Studio Code
+.vscode/
+*.code-workspace
+
+# IDE - CLion / IntelliJ
+.idea/
+cmake-build-*/
+
+# IDE - Eclipse
+.cproject
+.project
+.settings/
+
+# Sistema Operativo
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Debugging
+*.dSYM/
+vgcore.*
+core
+core.*
+
+# Backups
+*.bak
+*.backup
+*_backup
+
+# Compiled documentation
+*.pdf
+!docs/*.pdf
