@@ -5,8 +5,6 @@
 # Executáveis
 build/
 *.exe
-cliente
-servidor
 servidorSudoku
 clienteSudoku
 
