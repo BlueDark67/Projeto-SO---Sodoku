@@ -1,6 +1,16 @@
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include "config_servidor.h"
+
+// Remove espaços e caracteres de controle (como \r, \n) do final da string
+static void trim(char *str) {
+    char *end = str + strlen(str) - 1;
+    while (end >= str && (isspace((unsigned char)*end) || *end == '\r')) {
+        end--;
+    }
+    *(end + 1) = '\0';
+}
 
 int lerConfigServidor(const char *nomeFicheiro, ConfigServidor *config) {
     FILE *f = fopen(nomeFicheiro, "r");
@@ -13,6 +23,7 @@ int lerConfigServidor(const char *nomeFicheiro, ConfigServidor *config) {
     while (fgets(linha, sizeof(linha), f)) {
         char parametro[50], valor[150];
         if (sscanf(linha, "%49[^:]: %149[^\n]", parametro, valor) == 2) {
+            trim(valor); // Remove \r e espaços do final
             if (strcmp(parametro, "JOGOS") == 0) {
                 strcpy(config->ficheiroJogos, valor);
             } else if (strcmp(parametro, "SOLUCOES") == 0) {
