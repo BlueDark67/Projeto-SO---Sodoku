@@ -42,9 +42,9 @@ int main(void)
 
     // --- (PARA TESTAR SEM O FICHEIRO) ---
     // Vamos definir valores à mão só para testar agora
-    if (lerConfigCliente("cliente.conf", &config) != 0)
+    if (lerConfigCliente("config/cliente.conf", &config) != 0)
     {
-        err_dump("Cliente: Falha a ler cliente.conf");
+        err_dump("Cliente: Falha a ler config/cliente.conf");
     }
     printf("   ✓ A ligar ao IP: %s\n", config.ipServidor);
     printf("   ✓ O meu ID é: %d\n", config.idCliente);

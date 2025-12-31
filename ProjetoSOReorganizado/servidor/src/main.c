@@ -35,9 +35,9 @@ int main(void)
 
     // --- Início da Lógica da Fase 1 ---
     printf("1. A ler configuração...\n");
-    if (lerConfigServidor("server.conf", &config) != 0)
+    if (lerConfigServidor("config/server.conf", &config) != 0)
     {
-        err_dump("Servidor: Falha a ler server.conf");
+        err_dump("Servidor: Falha a ler config/server.conf");
     }
 
     printf("2. A inicializar logs em %s...\n", config.ficheiroLog);
