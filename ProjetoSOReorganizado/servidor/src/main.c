@@ -177,23 +177,24 @@ int main(int argc, char *argv[])
     }
 
     // Ajustar caminhos se necessário (tentar com e sem ../)
-    FILE *test = fopen(config.ficheiroLog, "r");
+    // Usa o ficheiro de JOGOS como referência (sempre existe, ao contrário do log)
+    FILE *test = fopen(config.ficheiroJogos, "r");
     if (!test) {
         // Tentar com ../
         char temp[256];
-        snprintf(temp, sizeof(temp), "../%s", config.ficheiroLog);
+        snprintf(temp, sizeof(temp), "../%s", config.ficheiroJogos);
         test = fopen(temp, "r");
         if (test) {
             fclose(test);
             // Adicionar ../ aos caminhos usando buffer temporário
-            char tempJogos[256], tempSolucoes[256];
-            snprintf(temp, sizeof(temp), "../%s", config.ficheiroLog);
+            char tempJogos[256], tempSolucoes[256], tempLog[256];
             snprintf(tempJogos, sizeof(tempJogos), "../%s", config.ficheiroJogos);
             snprintf(tempSolucoes, sizeof(tempSolucoes), "../%s", config.ficheiroSolucoes);
+            snprintf(tempLog, sizeof(tempLog), "../%s", config.ficheiroLog);
             
-            strncpy(config.ficheiroLog, temp, sizeof(config.ficheiroLog) - 1);
             strncpy(config.ficheiroJogos, tempJogos, sizeof(config.ficheiroJogos) - 1);
             strncpy(config.ficheiroSolucoes, tempSolucoes, sizeof(config.ficheiroSolucoes) - 1);
+            strncpy(config.ficheiroLog, tempLog, sizeof(config.ficheiroLog) - 1);
         }
     } else {
         fclose(test);
@@ -204,7 +205,12 @@ int main(int argc, char *argv[])
     {
         err_dump("Servidor: Falha a iniciar logs");
     }
-    registarEvento(0, EVT_SERVIDOR_INICIADO, "Servidor a arrancar...");
+    
+    char log_init[512];
+    snprintf(log_init, sizeof(log_init), 
+             "Servidor iniciado - Porta: %d, MaxFila: %d, MaxJogos: %d", 
+             config.porta, config.maxFila, config.maxJogos);
+    registarEvento(0, EVT_SERVIDOR_INICIADO, log_init);
 
     printf("3. A alocar memória para %d jogos...\n", config.maxJogos);
     jogos = malloc(sizeof(Jogo) * config.maxJogos);
@@ -221,7 +227,11 @@ int main(int argc, char *argv[])
         free(jogos);
         err_dump("Servidor: Falha a carregar jogos");
     }
-    registarEvento(0, EVT_JOGOS_CARREGADOS, "Jogos carregados");
+    
+    snprintf(log_init, sizeof(log_init), 
+             "%d jogos carregados de %s (capacidade: %d jogos)", 
+             numJogos, config.ficheiroJogos, config.maxJogos);
+    registarEvento(0, EVT_JOGOS_CARREGADOS, log_init);
     printf("   ✓ %d jogos carregados.\n\n", numJogos);
     // --- Fim da Lógica da Fase 1 ---
 
@@ -283,7 +293,11 @@ int main(int argc, char *argv[])
         // Regista o IP do cliente que se ligou (útil para o log!)
         char *ip_cliente = inet_ntoa(cli_addr.sin_addr);
         printf("[LOG] Novo cliente conectado do IP: %s\n", ip_cliente);
-        registarEvento(0, EVT_CLIENTE_CONECTADO, ip_cliente);
+        
+        snprintf(log_init, sizeof(log_init), 
+                 "Novo cliente conectado de %s (porta %d)", 
+                 ip_cliente, ntohs(cli_addr.sin_port));
+        registarEvento(0, EVT_CLIENTE_CONECTADO, log_init);
 
         /* Lança processo filho para lidar com o cliente */
         if ((childpid = fork()) < 0)
@@ -299,7 +313,9 @@ int main(int argc, char *argv[])
             str_echo(newsockfd, jogos, numJogos, dados, config.maxLinha);
 
             printf("[LOG] Cliente %s desconectado.\n", ip_cliente);
-            registarEvento(0, EVT_CLIENTE_DESCONECTADO, ip_cliente);
+            snprintf(log_init, sizeof(log_init), 
+                     "Cliente desconectado: %s", ip_cliente);
+            registarEvento(0, EVT_CLIENTE_DESCONECTADO, log_init);
             exit(0);
         }
 

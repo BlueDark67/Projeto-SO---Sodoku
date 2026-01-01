@@ -80,20 +80,39 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
         case PEDIR_JOGO:
             // Lógica de Pedido de Jogo
             printf("Servidor: Cliente %d pediu um jogo.\n", msg_recebida.idCliente);
-            registarEvento(msg_recebida.idCliente, EVT_JOGO_PEDIDO, "Cliente pediu jogo");
-
+            
+            char log_msg[256];
             // LÓGICA SIMPLES: Envia sempre o primeiro jogo (jogo[0])
             // (Podes tornar isto mais complexo depois, ex: aleatório)
             if (numJogos > 0)
             {
+                // Contar células preenchidas no jogo
+                int celulas_preenchidas = 0;
+                for (int i = 0; i < 81; i++) {
+                    if (jogos[0].tabuleiro[i] != '0') celulas_preenchidas++;
+                }
+                
+                snprintf(log_msg, sizeof(log_msg), 
+                         "Cliente #%d pediu jogo - Enviado Jogo #%d (%d células preenchidas)", 
+                         msg_recebida.idCliente, jogos[0].idjogo, celulas_preenchidas);
+                registarEvento(msg_recebida.idCliente, EVT_JOGO_PEDIDO, log_msg);
+                
                 msg_resposta.tipo = ENVIAR_JOGO;
                 msg_resposta.idJogo = jogos[0].idjogo;
                 strcpy(msg_resposta.tabuleiro, jogos[0].tabuleiro);
-                registarEvento(msg_recebida.idCliente, EVT_JOGO_ENVIADO, "Jogo 0 enviado");
+                
+                snprintf(log_msg, sizeof(log_msg), 
+                         "Jogo #%d enviado para Cliente #%d", 
+                         jogos[0].idjogo, msg_recebida.idCliente);
+                registarEvento(msg_recebida.idCliente, EVT_JOGO_ENVIADO, log_msg);
             }
             else
             {
                 // Tratar erro (não há jogos)
+                snprintf(log_msg, sizeof(log_msg), 
+                         "ERRO: Cliente #%d pediu jogo mas não há jogos disponíveis", 
+                         msg_recebida.idCliente);
+                registarEvento(msg_recebida.idCliente, EVT_ERRO_GERAL, log_msg);
             }
             break;
 
@@ -101,7 +120,17 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
             // Lógica de Verificação de Solução
             printf("Servidor: Cliente %d enviou solução para jogo %d.\n",
                    msg_recebida.idCliente, msg_recebida.idJogo);
-            registarEvento(msg_recebida.idCliente, EVT_SOLUCAO_RECEBIDA, "Solução recebida");
+            
+            // Contar células preenchidas na solução
+            int celulas_solucao = 0;
+            for (int i = 0; i < 81; i++) {
+                if (msg_recebida.tabuleiro[i] != '0') celulas_solucao++;
+            }
+            
+            snprintf(log_msg, sizeof(log_msg), 
+                     "Cliente #%d enviou solução para Jogo #%d (%d células preenchidas)", 
+                     msg_recebida.idCliente, msg_recebida.idJogo, celulas_solucao);
+            registarEvento(msg_recebida.idCliente, EVT_SOLUCAO_RECEBIDA, log_msg);
 
             // Encontrar o jogo correspondente
             Jogo *jogo_atual = NULL;
@@ -125,18 +154,28 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
                 if (res.correto)
                 {
                     strcpy(msg_resposta.resposta, "Certo");
-                    registarEvento(msg_recebida.idCliente, EVT_SOLUCAO_CORRETA, "Solução correta");
+                    snprintf(log_msg, sizeof(log_msg), 
+                             "✓ SOLUÇÃO CORRETA - Cliente #%d resolveu Jogo #%d (81 células corretas)", 
+                             msg_recebida.idCliente, msg_recebida.idJogo);
+                    registarEvento(msg_recebida.idCliente, EVT_SOLUCAO_CORRETA, log_msg);
                 }
                 else
                 {
                     strcpy(msg_resposta.resposta, "Errado");
-                    registarEvento(msg_recebida.idCliente, EVT_SOLUCAO_ERRADA, "Solução errada");
+                    snprintf(log_msg, sizeof(log_msg), 
+                             "✗ SOLUÇÃO INCORRETA - Cliente #%d, Jogo #%d: %d erros, %d acertos de 81 células", 
+                             msg_recebida.idCliente, msg_recebida.idJogo, 
+                             res.numerosErrados, res.numerosCertos);
+                    registarEvento(msg_recebida.idCliente, EVT_SOLUCAO_ERRADA, log_msg);
                 }
             }
             else
             {
                 strcpy(msg_resposta.resposta, "Erro: Jogo Nao Encontrado");
-                registarEvento(msg_recebida.idCliente, EVT_ERRO_GERAL, "Jogo ID não encontrado");
+                snprintf(log_msg, sizeof(log_msg), 
+                         "ERRO: Cliente #%d tentou validar Jogo #%d inexistente", 
+                         msg_recebida.idCliente, msg_recebida.idJogo);
+                registarEvento(msg_recebida.idCliente, EVT_ERRO_GERAL, log_msg);
             }
             break;
 

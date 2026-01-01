@@ -17,6 +17,7 @@
 #include "config_cliente.h" // Configuração do cliente
 #include "protocolo.h"      // O teu protocolo partilhado (common/include)
 #include "util.h"           // Funções utilitárias (readn, writen... common/include)
+#include "logs_cliente.h"   // Sistema de logs do cliente
 void str_cli(FILE *fp, int sockfd, int idCliente);
 
 int main(int argc, char *argv[])
@@ -87,6 +88,33 @@ int main(int argc, char *argv[])
     printf("   ✓ IP do Servidor: %s\n", config.ipServidor);
     printf("   ✓ Porta: %d\n", config.porta);
     printf("   ✓ ID do Cliente: %d\n\n", config.idCliente);
+    
+    // Inicializar logs do cliente
+    if (strlen(config.ficheiroLog) > 0) {
+        // Determinar se estamos em build/ ou raiz usando o ficheiro de config como referência
+        char log_path[256];
+        int precisaAjuste = 0;
+        
+        // Se o ficheiro de config usado tem ../ no caminho, então estamos em build/
+        if (strstr(ficheiroConfig, "../") != NULL) {
+            precisaAjuste = 1;
+        }
+        
+        if (precisaAjuste) {
+            snprintf(log_path, sizeof(log_path), "../%s", config.ficheiroLog);
+        } else {
+            strncpy(log_path, config.ficheiroLog, sizeof(log_path) - 1);
+        }
+        
+        if (inicializarLogCliente(log_path, config.idCliente) == 0) {
+            printf("   ✓ Logs ativados: %s\n\n", log_path);
+            char msg_init[256];
+            snprintf(msg_init, sizeof(msg_init), 
+                     "Cliente #%d iniciado - Config: %s", 
+                     config.idCliente, ficheiroConfig);
+            registarEventoCliente(EVTC_CLIENTE_INICIADO, msg_init);
+        }
+    }
 
     // --- Início da Lógica de Sockets (Fase 2) ---
 
@@ -112,10 +140,20 @@ int main(int argc, char *argv[])
     printf("3. A ligar ao servidor %s:%d...\n", config.ipServidor, config.porta);
     if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
+        char msg_erro[256];
+        snprintf(msg_erro, sizeof(msg_erro), 
+                 "Falha ao conectar a %s:%d", config.ipServidor, config.porta);
+        registarEventoCliente(EVTC_ERRO, msg_erro);
         err_dump("Cliente: não foi possível ligar ao servidor");
     }
 
     printf("   ✓ Ligado com sucesso!\n\n");
+    
+    char msg_conexao[256];
+    snprintf(msg_conexao, sizeof(msg_conexao), 
+             "Conexão estabelecida com servidor %s:%d", 
+             config.ipServidor, config.porta);
+    registarEventoCliente(EVTC_CONEXAO_ESTABELECIDA, msg_conexao);
 
     /* Envia os pedidos e recebe as respostas */
     // str_cli é a função do util-stream-cliente.c
@@ -124,6 +162,7 @@ int main(int argc, char *argv[])
 
     /* Fecha o socket e termina */
     printf("\n4. A fechar ligação...\n");
+    fecharLogCliente();
     close(sockfd);
     exit(0);
 }

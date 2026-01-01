@@ -11,6 +11,7 @@
 
 // --- INCLUDES ADICIONADOS ---
 #include "protocolo.h" // common/include
+#include "logs_cliente.h" // Logs do cliente
 // -----------------------------
 
 /**
@@ -79,6 +80,8 @@ void str_cli(FILE *fp, int sockfd, int idCliente)
 
     // ----- PASSO 1: Pedir um jogo -----
     printf("Cliente: A pedir jogo ao servidor (Meu ID: %d)...\n", idCliente);
+    registarEventoCliente(EVTC_NOVO_JOGO_PEDIDO, "Novo jogo solicitado ao servidor");
+    
     bzero(&msg_enviar, sizeof(MensagemSudoku));
     msg_enviar.tipo = PEDIR_JOGO;
     msg_enviar.idCliente = idCliente;
@@ -93,8 +96,23 @@ void str_cli(FILE *fp, int sockfd, int idCliente)
     if (msg_receber.tipo != ENVIAR_JOGO)
     {
         printf("Cliente: Erro, esperava um jogo (tipo 2) e recebi tipo %d\n", msg_receber.tipo);
+        char msg_erro[128];
+        snprintf(msg_erro, sizeof(msg_erro), "Erro: tipo de mensagem inesperado %d", msg_receber.tipo);
+        registarEventoCliente(EVTC_ERRO, msg_erro);
         return;
     }
+
+    // Contar células preenchidas
+    int celulas_preenchidas = 0;
+    for (int i = 0; i < 81; i++) {
+        if (msg_receber.tabuleiro[i] != '0') celulas_preenchidas++;
+    }
+    
+    char msg_log[256];
+    snprintf(msg_log, sizeof(msg_log), 
+             "Jogo #%d recebido (%d células preenchidas, %d vazias)", 
+             msg_receber.idJogo, celulas_preenchidas, 81 - celulas_preenchidas);
+    registarEventoCliente(EVTC_JOGO_RECEBIDO, msg_log);
 
     // *** CORREÇÃO: Copia a mensagem do jogo para um local seguro ***
     memcpy(&msg_jogo_original, &msg_receber, sizeof(MensagemSudoku));
@@ -129,6 +147,20 @@ void str_cli(FILE *fp, int sockfd, int idCliente)
 
     // *** CORREÇÃO: Adicionado \n no fim do printf ***
     printf("\nA enviar solução para o servidor...\n");
+    
+    time_t fim = time(NULL);
+    double tempo_resolucao = difftime(fim, horaInicio);
+    
+    // Contar células preenchidas na solução
+    int celulas_sol = 0;
+    for (int i = 0; i < 81; i++) {
+        if (minha_solucao[i] != '0') celulas_sol++;
+    }
+    
+    snprintf(msg_log, sizeof(msg_log), 
+             "Solução enviada para Jogo #%d (%d células, tempo: %.0fs)", 
+             msg_jogo_original.idJogo, celulas_sol, tempo_resolucao);
+    registarEventoCliente(EVTC_SOLUCAO_ENVIADA, msg_log);
 
     bzero(&msg_enviar, sizeof(MensagemSudoku));
     msg_enviar.tipo = ENVIAR_SOLUCAO;
@@ -143,6 +175,11 @@ void str_cli(FILE *fp, int sockfd, int idCliente)
     // msg_receber é AGORA USADO SÓ PARA A RESPOSTA
     if (readn(sockfd, (char *)&msg_receber, sizeof(MensagemSudoku)) != sizeof(MensagemSudoku))
         err_dump("str_cli: erro ao receber resultado");
+    
+    snprintf(msg_log, sizeof(msg_log), 
+             "Resultado recebido do servidor para Jogo #%d", 
+             msg_jogo_original.idJogo);
+    registarEventoCliente(EVTC_RESULTADO_RECEBIDO, msg_log);
 
     // Mostrar o resultado final
     // *** CORREÇÃO: Usa a cópia segura (msg_jogo_original) para desenhar a UI ***
@@ -154,10 +191,24 @@ void str_cli(FILE *fp, int sockfd, int idCliente)
         // Mas usa a resposta do msg_receber
         printf("  Resultado do Servidor: %s\n", msg_receber.resposta);
         printf("===================================\n");
+        
+        if (strcmp(msg_receber.resposta, "Certo") == 0) {
+            snprintf(msg_log, sizeof(msg_log), 
+                     "✓ SOLUÇÃO CORRETA! Jogo #%d resolvido em %.0fs", 
+                     msg_jogo_original.idJogo, tempo_resolucao);
+            registarEventoCliente(EVTC_SOLUCAO_CORRETA, msg_log);
+        } else {
+            snprintf(msg_log, sizeof(msg_log), 
+                     "✗ SOLUÇÃO INCORRETA - Jogo #%d (tempo: %.0fs)", 
+                     msg_jogo_original.idJogo, tempo_resolucao);
+            registarEventoCliente(EVTC_SOLUCAO_INCORRETA, msg_log);
+        }
     }
     else
     {
         printf("Cliente: Erro, esperava uma resposta (tipo 4) e recebi tipo %d\n", msg_receber.tipo);
+        snprintf(msg_log, sizeof(msg_log), "Erro: tipo de resposta inesperado %d", msg_receber.tipo);
+        registarEventoCliente(EVTC_ERRO, msg_log);
     }
 
     printf("Pressione ENTER para fechar...\n");

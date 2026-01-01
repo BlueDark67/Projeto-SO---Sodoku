@@ -55,8 +55,8 @@ int inicializarLog(const char *ficheiroLog) {
     long size = ftell(ficheiro_log);
     
     if (size == 0) {
-        fprintf(ficheiro_log, "IdUtilizador\tHora\t\tAcontecimento\tDescricao\n");
-        fprintf(ficheiro_log, "============\t========\t=============\t=========\n");
+        fprintf(ficheiro_log, "%-12s %-8s %-18s %s\n", "IdUtilizador", "Hora", "Acontecimento", "Descrição");
+        fprintf(ficheiro_log, "%-12s %-8s %-18s %s\n", "============", "========", "==================", "===========");
     }
     
     fflush(ficheiro_log);
@@ -77,8 +77,15 @@ void registarEvento(int idUtilizador, CodigoEvento evento, const char *descricao
     info_tempo = localtime(&agora);
     strftime(buffer_tempo, sizeof(buffer_tempo), "%H:%M:%S", info_tempo);
     
-    fprintf(ficheiro_log, "%d\t\t%s\t%d\t\t\"%s\"\n", 
-            idUtilizador, buffer_tempo, evento, descricao ? descricao : "");
+    char id_str[13];
+    if (idUtilizador == 0) {
+        snprintf(id_str, sizeof(id_str), "[Servidor]");
+    } else {
+        snprintf(id_str, sizeof(id_str), "%d", idUtilizador);
+    }
+    
+    fprintf(ficheiro_log, "%-12s %-8s %-18s %s\n", 
+            id_str, buffer_tempo, obterDescricaoEvento(evento), descricao ? descricao : "");
     fflush(ficheiro_log);
     
     // Também imprimir no console para debug
