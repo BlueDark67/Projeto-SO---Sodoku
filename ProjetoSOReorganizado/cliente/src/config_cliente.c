@@ -39,10 +39,11 @@ int lerConfigCliente(const char *nomeFicheiro, ConfigCliente *config) {
     char linha[MAX_LINHA];
     int linha_num = 0;
 
-    // Define valores padrão para o caso de não estarem no ficheiro
-    config->idCliente = 0;
-    strcpy(config->ipServidor, "127.0.0.1"); // Padrão é localhost
-    strcpy(config->ficheiroLog, "cliente.log");
+    // Inicializar com valores inválidos para forçar configuração explícita
+    config->idCliente = -1;
+    config->porta = -1;
+    config->ipServidor[0] = '\0';
+    config->ficheiroLog[0] = '\0';
 
     while (fgets(linha, sizeof(linha), f)) {
         linha_num++;
@@ -93,6 +94,8 @@ while (fim > valor_limpo && isspace((unsigned char)*fim)) {
             strncpy(config->ipServidor, valor_limpo, sizeof(config->ipServidor) - 1);
         } else if (strcmp(chave, "ID_CLIENTE") == 0) {
             config->idCliente = atoi(valor);
+        } else if (strcmp(chave, "PORTA") == 0) {
+            config->porta = atoi(valor);
         } else if (strcmp(chave, "LOG") == 0) {
             strncpy(config->ficheiroLog, valor_limpo, sizeof(config->ficheiroLog) - 1);
         }

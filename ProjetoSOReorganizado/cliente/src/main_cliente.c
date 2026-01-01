@@ -19,36 +19,74 @@
 #include "util.h"           // Funções utilitárias (readn, writen... common/include)
 void str_cli(FILE *fp, int sockfd, int idCliente);
 
-#define PORTA 8080 // Porta que o servidor está a usar
-
-int main(void)
+int main(int argc, char *argv[])
 {
     int sockfd;
-    struct sockaddr_in serv_addr; // <--- MUDANÇA (sockaddr_in)
-    ConfigCliente config;         // Precisamos disto para saber o IP e ID
+    struct sockaddr_in serv_addr;
+    ConfigCliente config;
+    char ficheiroConfig[256];
 
     printf("===========================================\n");
-    printf("CLIENTE SUDOKU\n");
+    printf("   CLIENTE SUDOKU\n");
     printf("===========================================\n\n");
 
-    // --- Lógica de Configuração do Cliente ---
-    // (Isto é novo, mas é pedido no enunciado do projeto)
-    printf("1. A ler configuração (cliente.conf)...\n");
-    // if (lerConfigCliente("cliente.conf", &config) != 0) {
-    //     err_dump("Cliente: Falha a ler cliente.conf");
-    // }
-    // printf("   ✓ A ligar ao IP: %s\n", config.ipServidor);
-    // printf("   ✓ O meu ID é: %d\n\n", config.idCliente);
-
-    // --- (PARA TESTAR SEM O FICHEIRO) ---
-    // Vamos definir valores à mão só para testar agora
-    if (lerConfigCliente("../config/cliente/cliente.conf", &config) != 0)
-    {
-        err_dump("Cliente: Falha a ler ../config/cliente/cliente.conf");
+    // --- Verificar argumento de configuração ---
+    if (argc >= 2) {
+        // User passou ficheiro de configuração
+        strncpy(ficheiroConfig, argv[1], sizeof(ficheiroConfig) - 1);
+        ficheiroConfig[sizeof(ficheiroConfig) - 1] = '\0';
+        
+        // Verificar se o ficheiro existe
+        if (access(ficheiroConfig, F_OK) != 0) {
+            fprintf(stderr, "ERRO: Ficheiro '%s' não encontrado!\n", ficheiroConfig);
+            fprintf(stderr, "-> Verifique se o caminho está correto.\n");
+            fprintf(stderr, "-> Exemplo: %s config/cliente/cliente.conf\n", argv[0]);
+            return 1;
+        }
+    } else {
+        // Usar ficheiro default: cliente.conf
+        // Tentar primeiro config/cliente/cliente.conf (executar da raiz)
+        if (access("config/cliente/cliente.conf", F_OK) == 0) {
+            strncpy(ficheiroConfig, "config/cliente/cliente.conf", sizeof(ficheiroConfig) - 1);
+        }
+        // Senão tentar ../config/cliente/cliente.conf (executar de build/)
+        else if (access("../config/cliente/cliente.conf", F_OK) == 0) {
+            strncpy(ficheiroConfig, "../config/cliente/cliente.conf", sizeof(ficheiroConfig) - 1);
+        }
+        else {
+            fprintf(stderr, "ERRO: Ficheiro de configuração default não encontrado\n");
+            fprintf(stderr, "-> Procurado: config/cliente/cliente.conf e ../config/cliente/cliente.conf\n");
+            fprintf(stderr, "-> Especifique o caminho como argumento.\n");
+            fprintf(stderr, "-> Exemplo: %s config/cliente/cliente.conf\n", argv[0]);
+            return 1;
+        }
+        printf("Usando configuração default: %s\n\n", ficheiroConfig);
     }
-    printf("   ✓ A ligar ao IP: %s\n", config.ipServidor);
-    printf("   ✓ O meu ID é: %d\n", config.idCliente);
-    // --- (FIM DO TESTE) ---
+
+    // --- Lógica de Configuração do Cliente ---
+    printf("1. A ler configuração...\n");
+    if (lerConfigCliente(ficheiroConfig, &config) != 0) {
+        fprintf(stderr, "Cliente: Falha a ler %s\n", ficheiroConfig);
+        return 1;
+    }
+    
+    // Validar configurações obrigatórias
+    if (strlen(config.ipServidor) == 0) {
+        fprintf(stderr, "ERRO: Configuração 'IP_SERVIDOR' não encontrada em %s\n", ficheiroConfig);
+        return 1;
+    }
+    if (config.idCliente < 0) {
+        fprintf(stderr, "ERRO: Configuração 'ID_CLIENTE' não encontrada ou inválida em %s\n", ficheiroConfig);
+        return 1;
+    }
+    if (config.porta <= 0 || config.porta > 65535) {
+        fprintf(stderr, "ERRO: PORTA inválida (%d). Deve estar entre 1 e 65535\n", config.porta);
+        return 1;
+    }
+    
+    printf("   ✓ IP do Servidor: %s\n", config.ipServidor);
+    printf("   ✓ Porta: %d\n", config.porta);
+    printf("   ✓ ID do Cliente: %d\n\n", config.idCliente);
 
     // --- Início da Lógica de Sockets (Fase 2) ---
 
@@ -62,7 +100,7 @@ int main(void)
     /* Configura a morada do SERVIDOR (IP + Porta) */
     bzero((char *)&serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(PORTA); // Define a porta do servidor
+    serv_addr.sin_port = htons(config.porta); // Define a porta do servidor
 
     // Converte o IP de texto (ex: "127.0.0.1") para o formato de rede
     if (inet_pton(AF_INET, config.ipServidor, &serv_addr.sin_addr) <= 0)
@@ -71,7 +109,7 @@ int main(void)
     }
 
     /* Tenta estabelecer uma ligação ao servidor */
-    printf("3. A ligar ao servidor %s:%d...\n", config.ipServidor, PORTA);
+    printf("3. A ligar ao servidor %s:%d...\n", config.ipServidor, config.porta);
     if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
         err_dump("Cliente: não foi possível ligar ao servidor");

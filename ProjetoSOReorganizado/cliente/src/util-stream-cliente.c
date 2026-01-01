@@ -69,6 +69,8 @@ void atualizarUICliente(MensagemSudoku *msg, time_t horaInicio)
  */
 void str_cli(FILE *fp, int sockfd, int idCliente)
 {
+    (void)fp; // Parâmetro não usado nesta implementação
+    
     MensagemSudoku msg_enviar;
     MensagemSudoku msg_receber;
 
