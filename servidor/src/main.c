@@ -280,6 +280,11 @@ int main(int argc, char *argv[])
         fprintf(stderr, "ERRO: MAXLINE inválido (%d). Deve ser >= 256\n", config.maxLinha);
         return 1;
     }
+    if (config.timeoutCliente < 0) {
+        fprintf(stderr, "ERRO: TIMEOUT_CLIENTE não configurado ou inválido em %s\n", ficheiroConfig);
+        fprintf(stderr, "-> Adicione: TIMEOUT_CLIENTE: 30 (por exemplo)\n");
+        return 1;
+    }
     
     // Validar configurações de modo
     if (config.modo != MODO_PADRAO && config.modo != MODO_DEBUG) {
@@ -477,7 +482,7 @@ int main(int argc, char *argv[])
 
             // str_echo é a função do util-stream-server.c
             // É AQUI que vais implementar a lógica do protocolo.h
-            str_echo(newsockfd, jogos, numJogos, dados, config.maxLinha);
+            str_echo(newsockfd, jogos, numJogos, dados, config.maxLinha, config.timeoutCliente);
 
             printf("[LOG] Cliente %s desconectado.\n", ip_cliente);
             snprintf(log_init, sizeof(log_init), 

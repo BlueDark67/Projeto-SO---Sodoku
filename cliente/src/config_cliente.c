@@ -67,6 +67,7 @@ int lerConfigCliente(const char *nomeFicheiro, ConfigCliente *config) {
     // Se ficarem com estes valores, significa que não foram configurados
     config->idCliente = -1;
     config->porta = -1;
+    config->timeoutServidor = -1;
     config->ipServidor[0] = '\0';
     config->ficheiroLog[0] = '\0';
 
@@ -130,6 +131,8 @@ int lerConfigCliente(const char *nomeFicheiro, ConfigCliente *config) {
             config->idCliente = atoi(valor);
         } else if (strcmp(chave, "PORTA") == 0) {
             config->porta = atoi(valor);
+        } else if (strcmp(chave, "TIMEOUT_SERVIDOR") == 0) {
+            config->timeoutServidor = atoi(valor_limpo);
         } else if (strcmp(chave, "LOG") == 0) {
             if (strlen(valor_limpo) >= sizeof(config->ficheiroLog)) {
                 fprintf(stderr, "ERRO: Valor de LOG muito longo (máx %zu chars)\n", 

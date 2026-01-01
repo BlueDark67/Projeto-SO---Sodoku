@@ -18,6 +18,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/time.h>       // Para struct timeval (timeout)
 #include <netinet/in.h> // Estruturas para sockets TCP/IP
 #include <arpa/inet.h>  // Conversão de endereços IP
 
@@ -95,6 +96,11 @@ int main(int argc, char *argv[])
         fprintf(stderr, "ERRO: PORTA inválida (%d). Deve estar entre 1 e 65535\n", config.porta);
         return 1;
     }
+    if (config.timeoutServidor < 0) {
+        fprintf(stderr, "ERRO: TIMEOUT_SERVIDOR não configurado ou inválido em %s\n", ficheiroConfig);
+        fprintf(stderr, "-> Adicione: TIMEOUT_SERVIDOR: 10 (por exemplo)\n");
+        return 1;
+    }
     
     printf("   ✓ IP do Servidor: %s\n", config.ipServidor);
     printf("   ✓ Porta: %d\n", config.porta);
@@ -136,6 +142,19 @@ int main(int argc, char *argv[])
     {
         err_dump("Cliente: não foi possível abrir o socket stream");
     }
+
+    /* Aplicar timeout de socket */
+    struct timeval timeout;
+    timeout.tv_sec = config.timeoutServidor;
+    timeout.tv_usec = 0;
+    
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+        perror("Aviso: Falha ao configurar SO_RCVTIMEO");
+    }
+    if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
+        perror("Aviso: Falha ao configurar SO_SNDTIMEO");
+    }
+    printf("   ✓ Timeout configurado: %d segundos\n", config.timeoutServidor);
 
     /* Configura a morada do SERVIDOR (IP + Porta) */
     bzero((char *)&serv_addr, sizeof(serv_addr));

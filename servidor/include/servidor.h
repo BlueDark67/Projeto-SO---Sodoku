@@ -12,6 +12,6 @@ typedef struct {
 } DadosPartilhados;
 
 // Protótipo da função que está em util-stream-server.c
-void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, int maxLinha);
+void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, int maxLinha, int timeoutCliente);
 
 #endif

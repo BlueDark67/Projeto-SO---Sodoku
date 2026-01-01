@@ -5,6 +5,7 @@ typedef struct {
     char ipServidor[50];   // Espaço para um endereço IP (ex: 192.168.1.100)
     int idCliente;         // ID deste cliente
     int porta;             // Porta do servidor
+    int timeoutServidor;   // Timeout para operações de socket com servidor (segundos)
     char ficheiroLog[100]; // Opcional: para o cliente também ter um log
 } ConfigCliente;
 

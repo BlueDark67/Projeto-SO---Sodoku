@@ -23,6 +23,7 @@
 #include <stdlib.h> // system() para limpar ecrã
 #include <time.h>   // Temporizador de resolução
 #include <unistd.h> // sleep() para animação
+#include <errno.h>  // Para EAGAIN, EWOULDBLOCK
 
 // Headers do projeto
 #include "protocolo.h"      // Tipos de mensagens
@@ -112,8 +113,16 @@ void str_cli(FILE *fp, int sockfd, int idCliente)
         err_dump("str_cli: erro ao enviar pedido de jogo");
 
     // ----- PASSO 2: Receber o jogo -----
-    if (readn(sockfd, (char *)&msg_receber, sizeof(MensagemSudoku)) != sizeof(MensagemSudoku))
-        err_dump("str_cli: erro ao receber jogo");
+    int n = readn(sockfd, (char *)&msg_receber, sizeof(MensagemSudoku));
+    if (n != sizeof(MensagemSudoku)) {
+        // Verificar se foi timeout
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            printf("[TIMEOUT] Servidor não respondeu a tempo.\n");
+            registarEventoCliente(EVTC_ERRO, "Timeout ao aguardar jogo do servidor");
+            return;
+        }
+        err_dump("str_cli: erro ao receber o jogo");
+    }
 
     if (msg_receber.tipo != ENVIAR_JOGO)
     {
@@ -197,8 +206,16 @@ void str_cli(FILE *fp, int sockfd, int idCliente)
 
     // ----- PASSO 5: Receber o resultado -----
     // msg_receber é AGORA USADO SÓ PARA A RESPOSTA
-    if (readn(sockfd, (char *)&msg_receber, sizeof(MensagemSudoku)) != sizeof(MensagemSudoku))
+    n = readn(sockfd, (char *)&msg_receber, sizeof(MensagemSudoku));
+    if (n != sizeof(MensagemSudoku)) {
+        // Verificar se foi timeout
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            printf("[TIMEOUT] Servidor não respondeu a tempo.\n");
+            registarEventoCliente(EVTC_ERRO, "Timeout ao aguardar resultado do servidor");
+            return;
+        }
         err_dump("str_cli: erro ao receber resultado");
+    }
     
     snprintf(msg_log, sizeof(msg_log), 
              "Resultado recebido do servidor para Jogo #%d", 

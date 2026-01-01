@@ -60,6 +60,7 @@ int lerConfigServidor(const char *nomeFicheiro, ConfigServidor *config) {
     config->maxJogos = -1;
     config->delayErro = -1;
     config->maxLinha = -1;
+    config->timeoutCliente = -1;
     config->ficheiroJogos[0] = '\0';
     config->ficheiroSolucoes[0] = '\0';
     config->ficheiroLog[0] = '\0';
@@ -117,6 +118,8 @@ int lerConfigServidor(const char *nomeFicheiro, ConfigServidor *config) {
                 config->delayErro = atoi(valor);
             } else if (strcmp(parametro, "MAXLINE") == 0) {
                 config->maxLinha = atoi(valor);
+            } else if (strcmp(parametro, "TIMEOUT_CLIENTE") == 0) {
+                config->timeoutCliente = atoi(valor);
             } else if (strcmp(parametro, "MODO") == 0) {
                 if (strcmp(valor, "DEBUG") == 0) {
                     config->modo = MODO_DEBUG;

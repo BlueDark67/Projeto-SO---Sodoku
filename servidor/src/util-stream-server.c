@@ -18,6 +18,9 @@
 
 #include "util.h"
 #include <string.h>
+#include <errno.h>           // Para EAGAIN, EWOULDBLOCK
+#include <sys/socket.h>      // Para setsockopt, SOL_SOCKET
+#include <sys/time.h>        // Para struct timeval
 
 // Headers necessários para o protocolo e gestão de jogos
 #include "protocolo.h"        // Definição de mensagens e tipos
@@ -42,8 +45,9 @@
  * @param numJogos Número total de jogos carregados
  * @param dados Ponteiro para memória partilhada (sincronização)
  * @param maxLinha Tamanho máximo do buffer (configurável)
+ * @param timeoutCliente Timeout em segundos para operações de socket
  */
-void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, int maxLinha)
+void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, int maxLinha, int timeoutCliente)
 {
     int n;
     MensagemSudoku msg_recebida;
@@ -54,6 +58,22 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
         printf("[AVISO] maxLinha configurado (%d) é muito pequeno, usando 512\n", maxLinha);
         maxLinha = 512;
     }
+
+    /* Aplicar timeout de socket */
+    struct timeval timeout;
+    timeout.tv_sec = timeoutCliente;
+    timeout.tv_usec = 0;
+    
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+        registarEvento(0, EVT_ERRO_GERAL, "Falha ao configurar SO_RCVTIMEO no socket do cliente");
+    }
+    if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
+        registarEvento(0, EVT_ERRO_GERAL, "Falha ao configurar SO_SNDTIMEO no socket do cliente");
+    }
+    
+    char log_timeout[256];
+    snprintf(log_timeout, sizeof(log_timeout), "Timeout de socket configurado: %d segundos", timeoutCliente);
+    registarEvento(0, EVT_SERVIDOR_INICIADO, log_timeout);
 
     /* ========================================
      * SINCRONIZAÇÃO ENTRE CLIENTES
@@ -93,6 +113,21 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
         if (n == 0)
         {
             return; // Cliente desligou-se (EOF)
+        }
+        else if (n < 0)
+        {
+            // Verificar se foi timeout
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                char log_timeout[256];
+                snprintf(log_timeout, sizeof(log_timeout), 
+                         "Cliente #%d não respondeu em %d segundos (timeout)", 
+                         msg_recebida.idCliente, timeoutCliente);
+                registarEvento(msg_recebida.idCliente, EVT_ERRO_GERAL, log_timeout);
+                printf("[TIMEOUT] Cliente não respondeu, a fechar ligação.\n");
+                return;
+            }
+            err_dump("str_echo: erro a ler a mensagem");
+            return; // Erro
         }
         else if (n != sizeof(MensagemSudoku))
         {
