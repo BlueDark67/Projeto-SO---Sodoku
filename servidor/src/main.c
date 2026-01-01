@@ -244,18 +244,18 @@ int main(int argc, char *argv[])
         
         // Verificar se o ficheiro existe
         if (access(ficheiroConfig, F_OK) != 0) {
-            fprintf(stderr, "ERRO: Ficheiro '%s' não encontrado!\n", ficheiroConfig);
-            fprintf(stderr, "-> Verifique se o caminho está correto.\n");
-            fprintf(stderr, "-> Exemplo: %s config/servidor/server.conf\n", argv[0]);
+            erro("Ficheiro '%s' não encontrado!", ficheiroConfig);
+            aviso("Verifique se o caminho está correto.");
+            aviso("Exemplo: %s config/servidor/server.conf", argv[0]);
             return 1;
         }
     } else {
         // Não passou argumento - mostrar 3 mensagens de erro
-        printf("ERRO: Nenhum ficheiro de configuração especificado!\n");
+        erro("Nenhum ficheiro de configuração especificado!");
         sleep(2);
-        printf("ERRO: O servidor precisa de um ficheiro de configuração para iniciar.\n");
+        erro("O servidor precisa de um ficheiro de configuração para iniciar.");
         sleep(2);
-        printf("ERRO: Use: %s <ficheiro_configuracao>\n\n", argv[0]);
+        erro("Use: %s <ficheiro_configuracao>\n", argv[0]);
         sleep(3);
         
         // Procurar ficheiros .conf em múltiplos locais
@@ -263,11 +263,11 @@ int main(int argc, char *argv[])
         int num_configs = procurar_configs_multi(configs, MAX_CONFIGS);
         
         if (num_configs == 0) {
-            printf("ERRO FATAL: Não foi encontrado nenhum ficheiro de configuração\n");
-            printf("-> Procurado em: config/servidor/ e ../config/servidor/\n");
-            printf("-> O servidor precisa de um ficheiro .conf para funcionar.\n");
-            printf("-> Crie um ficheiro de configuração ou especifique o caminho como argumento.\n");
-            printf("-> Exemplo: %s config/servidor/server.conf\n", argv[0]);
+            erro("FATAL: Não foi encontrado nenhum ficheiro de configuração");
+            aviso("Procurado em: config/servidor/ e ../config/servidor/");
+            aviso("O servidor precisa de um ficheiro .conf para funcionar.");
+            aviso("Crie um ficheiro de configuração ou especifique o caminho como argumento.");
+            aviso("Exemplo: %s config/servidor/server.conf", argv[0]);
             return 1;
         }
         

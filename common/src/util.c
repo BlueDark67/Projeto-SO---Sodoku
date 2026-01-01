@@ -3,6 +3,7 @@
 #include "util.h"
 #include <unistd.h>  // Para as funções read() e write()
 #include <stdlib.h>  // Para a função exit() (usada em err_dump)
+#include <stdarg.h>  // Para va_list, va_start, va_end
 
 /* Funções utilitárias retiradas de "UNIX Networking Programming" */
 
@@ -112,4 +113,24 @@ int ajustarCaminho(const char *caminhoOriginal, char *bufferDestino, size_t tama
 void limparEcra(void) {
     printf("\033[H\033[J");
     fflush(stdout);
+}
+
+/* Imprime mensagem de erro padronizada */
+void erro(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    fprintf(stderr, "\033[1;31m[ERRO]\033[0m "); // Vermelho
+    vfprintf(stderr, fmt, args);
+    fprintf(stderr, "\n");
+    va_end(args);
+}
+
+/* Imprime mensagem de aviso padronizada */
+void aviso(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    fprintf(stderr, "\033[1;33m[AVISO]\033[0m "); // Amarelo
+    vfprintf(stderr, fmt, args);
+    fprintf(stderr, "\n");
+    va_end(args);
 }

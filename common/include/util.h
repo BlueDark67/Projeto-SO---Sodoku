@@ -14,6 +14,18 @@ extern int readline(int fd, char *ptr, int maxlen);
 extern void err_dump(char *msg);
 
 /**
+ * @brief Imprime uma mensagem de erro formatada no stderr
+ * Ex: erro("Falha ao abrir %s", ficheiro); -> "[ERRO] Falha ao abrir config.txt"
+ */
+void erro(const char *fmt, ...);
+
+/**
+ * @brief Imprime uma mensagem de aviso formatada no stderr
+ * Ex: aviso("Tentativa %d falhou", i); -> "[AVISO] Tentativa 1 falhou"
+ */
+void aviso(const char *fmt, ...);
+
+/**
  * @brief Ajusta o caminho de um ficheiro verificando se existe localmente ou na diretoria pai
  * 
  * Útil para executar o programa tanto da raiz como da pasta build/

@@ -50,9 +50,9 @@ int main(int argc, char *argv[])
         
         // Verificar se o ficheiro existe
         if (access(ficheiroConfig, F_OK) != 0) {
-            fprintf(stderr, "ERRO: Ficheiro '%s' não encontrado!\n", ficheiroConfig);
-            fprintf(stderr, "-> Verifique se o caminho está correto.\n");
-            fprintf(stderr, "-> Exemplo: %s config/cliente/cliente.conf\n", argv[0]);
+            erro("Ficheiro '%s' não encontrado!", ficheiroConfig);
+            aviso("Verifique se o caminho está correto.");
+            aviso("Exemplo: %s config/cliente/cliente.conf", argv[0]);
             return 1;
         }
     } else {
@@ -60,10 +60,10 @@ int main(int argc, char *argv[])
         if (ajustarCaminho("config/cliente/cliente.conf", ficheiroConfig, sizeof(ficheiroConfig)) == 0) {
              printf("Usando configuração default: %s\n\n", ficheiroConfig);
         } else {
-            fprintf(stderr, "ERRO: Ficheiro de configuração default não encontrado\n");
-            fprintf(stderr, "-> Procurado: config/cliente/cliente.conf e ../config/cliente/cliente.conf\n");
-            fprintf(stderr, "-> Especifique o caminho como argumento.\n");
-            fprintf(stderr, "-> Exemplo: %s config/cliente/cliente.conf\n", argv[0]);
+            erro("Ficheiro de configuração default não encontrado");
+            aviso("Procurado: config/cliente/cliente.conf e ../config/cliente/cliente.conf");
+            aviso("Especifique o caminho como argumento.");
+            aviso("Exemplo: %s config/cliente/cliente.conf", argv[0]);
             return 1;
         }
     }
@@ -71,27 +71,27 @@ int main(int argc, char *argv[])
     // --- Lógica de Configuração do Cliente ---
     printf("1. A ler configuração...\n");
     if (lerConfigCliente(ficheiroConfig, &config) != 0) {
-        fprintf(stderr, "Cliente: Falha a ler %s\n", ficheiroConfig);
+        erro("Cliente: Falha a ler %s", ficheiroConfig);
         return 1;
     }
     
     // Validar campos obrigatórios da configuração
     // Sem estas configurações, o cliente não pode funcionar
     if (strlen(config.ipServidor) == 0) {
-        fprintf(stderr, "ERRO: Configuração 'IP_SERVIDOR' não encontrada em %s\n", ficheiroConfig);
+        erro("Configuração 'IP_SERVIDOR' não encontrada em %s", ficheiroConfig);
         return 1;
     }
     if (config.idCliente < 0) {
-        fprintf(stderr, "ERRO: Configuração 'ID_CLIENTE' não encontrada ou inválida em %s\n", ficheiroConfig);
+        erro("Configuração 'ID_CLIENTE' não encontrada ou inválida em %s", ficheiroConfig);
         return 1;
     }
     if (config.porta <= 0 || config.porta > 65535) {
-        fprintf(stderr, "ERRO: PORTA inválida (%d). Deve estar entre 1 e 65535\n", config.porta);
+        erro("PORTA inválida (%d). Deve estar entre 1 e 65535", config.porta);
         return 1;
     }
     if (config.timeoutServidor < 0) {
-        fprintf(stderr, "ERRO: TIMEOUT_SERVIDOR não configurado ou inválido em %s\n", ficheiroConfig);
-        fprintf(stderr, "-> Adicione: TIMEOUT_SERVIDOR: 10 (por exemplo)\n");
+        erro("TIMEOUT_SERVIDOR não configurado ou inválido em %s", ficheiroConfig);
+        aviso("Adicione: TIMEOUT_SERVIDOR: 10 (por exemplo)");
         return 1;
     }
     
