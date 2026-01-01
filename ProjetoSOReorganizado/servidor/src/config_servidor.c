@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include "config_servidor.h"
@@ -19,8 +20,20 @@ int lerConfigServidor(const char *nomeFicheiro, ConfigServidor *config) {
         return -1;
     }
 
+    // Inicializar com valores default
+    config->porta = 8080;
+    config->maxFila = 5;
+    config->maxJogos = 100;
+    config->delayErro = 2;
+    config->maxLinha = 512;
+
     char linha[200];
     while (fgets(linha, sizeof(linha), f)) {
+        // Ignorar linhas vazias e comentários
+        if (linha[0] == '\n' || linha[0] == '#') {
+            continue;
+        }
+        
         char parametro[50], valor[150];
         if (sscanf(linha, "%49[^:]: %149[^\n]", parametro, valor) == 2) {
             trim(valor); // Remove \r e espaços do final
@@ -30,6 +43,16 @@ int lerConfigServidor(const char *nomeFicheiro, ConfigServidor *config) {
                 strcpy(config->ficheiroSolucoes, valor);
             } else if (strcmp(parametro, "LOG") == 0) {
                 strcpy(config->ficheiroLog, valor);
+            } else if (strcmp(parametro, "PORTA") == 0) {
+                config->porta = atoi(valor);
+            } else if (strcmp(parametro, "MAX_FILA") == 0) {
+                config->maxFila = atoi(valor);
+            } else if (strcmp(parametro, "MAX_JOGOS") == 0) {
+                config->maxJogos = atoi(valor);
+            } else if (strcmp(parametro, "DELAY_ERRO") == 0) {
+                config->delayErro = atoi(valor);
+            } else if (strcmp(parametro, "MAXLINE") == 0) {
+                config->maxLinha = atoi(valor);
             }
         }
     }

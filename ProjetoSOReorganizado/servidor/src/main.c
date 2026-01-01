@@ -17,8 +17,6 @@
 #include "util.h"            // Funções de rede (common/include)
 #include "servidor.h"
 
-#define PORTA 8080 // Porta que o servidor vai usar
-#define MAX_FILA 5 // Máximo de clientes em espera
 #define CONFIG_DIR "config/servidor"
 #define MAX_CONFIGS 50
 
@@ -67,7 +65,7 @@ int main(int argc, char *argv[])
     struct sockaddr_in cli_addr, serv_addr; // <--- MUDANÇA (sockaddr_in)
 
     ConfigServidor config;
-    Jogo jogos[MAX_JOGOS];
+    Jogo *jogos;
     int numJogos = 0;
     char ficheiroConfig[256];
 
@@ -163,11 +161,19 @@ int main(int argc, char *argv[])
     }
     registarEvento(0, EVT_SERVIDOR_INICIADO, "Servidor a arrancar...");
 
-    printf("3. A carregar jogos de %s...\n", config.ficheiroJogos);
-    numJogos = carregarJogos(config.ficheiroJogos, jogos, MAX_JOGOS);
+    printf("3. A alocar memória para %d jogos...\n", config.maxJogos);
+    jogos = malloc(sizeof(Jogo) * config.maxJogos);
+    if (!jogos) {
+        registarEvento(0, EVT_ERRO_GERAL, "Falha ao alocar memória para jogos");
+        err_dump("Servidor: Falha ao alocar memória para jogos");
+    }
+
+    printf("4. A carregar jogos de %s...\n", config.ficheiroJogos);
+    numJogos = carregarJogos(config.ficheiroJogos, jogos, config.maxJogos);
     if (numJogos <= 0)
     {
         registarEvento(0, EVT_ERRO_GERAL, "Nenhum jogo carregado, servidor a fechar.");
+        free(jogos);
         err_dump("Servidor: Falha a carregar jogos");
     }
     registarEvento(0, EVT_JOGOS_CARREGADOS, "Jogos carregados");
@@ -175,7 +181,7 @@ int main(int argc, char *argv[])
     // --- Fim da Lógica da Fase 1 ---
 
     // --- Início da Lógica de Sockets (Fase 2) ---
-    printf("3.5 A configurar memória partilhada...\n");
+    printf("5. A configurar memória partilhada...\n");
 
     // Aloca memória que será partilhada entre processos pais e filhos
     DadosPartilhados *dados = mmap(NULL, sizeof(DadosPartilhados),
@@ -195,7 +201,7 @@ int main(int argc, char *argv[])
     sem_init(&dados->barreira, 1, 0); // Barreira começa a 0 (bloqueado)
 
     /* Cria socket stream (TCP) para Internet */
-    printf("4. A criar socket TCP (AF_INET)...\n");
+    printf("6. A criar socket TCP (AF_INET)...\n");
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
         err_dump("Servidor: não foi possível abrir o socket stream");
@@ -205,18 +211,18 @@ int main(int argc, char *argv[])
     bzero((char *)&serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = htonl(INADDR_ANY); // Aceita ligações de qualquer IP
-    serv_addr.sin_port = htons(PORTA);             // Define a porta
+    serv_addr.sin_port = htons(config.porta);      // Define a porta
 
     /* Associa o socket à morada e porta */
-    printf("5. A fazer bind à porta %d...\n", PORTA);
+    printf("7. A fazer bind à porta %d...\n", config.porta);
     if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
         err_dump("Servidor: não foi possível fazer bind");
     }
 
     /* Servidor pronto a aceitar clientes */
-    printf("6. A escutar na porta %d...\n", PORTA);
-    listen(sockfd, MAX_FILA);
+    printf("8. A escutar na porta %d (fila máxima: %d)...\n", config.porta, config.maxFila);
+    listen(sockfd, config.maxFila);
 
     printf("   ✓ Servidor pronto. À espera de clientes.\n\n");
 
@@ -245,7 +251,7 @@ int main(int argc, char *argv[])
 
             // str_echo é a função do util-stream-server.c
             // É AQUI que vais implementar a lógica do protocolo.h
-            str_echo(newsockfd, jogos, numJogos, dados);
+            str_echo(newsockfd, jogos, numJogos, dados, config.maxLinha);
 
             printf("[LOG] Cliente %s desconectado.\n", ip_cliente);
             registarEvento(0, EVT_CLIENTE_DESCONECTADO, ip_cliente);
@@ -255,5 +261,8 @@ int main(int argc, char *argv[])
         /* PROCESSO PAI */
         close(newsockfd); // Pai não precisa do socket do cliente
     }
+    
+    // Cleanup (nunca deve chegar aqui mas está correto)
+    free(jogos);
     munmap(dados, sizeof(DadosPartilhados));
 }

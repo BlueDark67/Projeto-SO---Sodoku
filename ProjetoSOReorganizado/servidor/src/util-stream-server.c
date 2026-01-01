@@ -15,18 +15,21 @@
 #include "servidor.h"
 // -----------------------------
 
-#define MAXLINE 512
-
 /* * Função principal do processo-filho.
  * Recebe mensagens do cliente (sockfd) e age de acordo.
  * Usa a lista de jogos (jogos) para validar.
  */
-// <--- MUDANÇA: A assinatura da função mudou
-void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados)
+void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, int maxLinha)
 {
     int n;
     MensagemSudoku msg_recebida;
     MensagemSudoku msg_resposta;
+
+    // Validar tamanho de buffer configurado
+    if (maxLinha < 256) {
+        printf("[AVISO] maxLinha configurado (%d) é muito pequeno, usando 512\n", maxLinha);
+        maxLinha = 512;
+    }
 
     sem_wait(&dados->mutex);
     dados->numClientes++;
