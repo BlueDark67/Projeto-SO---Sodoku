@@ -57,22 +57,15 @@ int main(int argc, char *argv[])
         }
     } else {
         // Usar ficheiro default: cliente.conf
-        // Tentar primeiro config/cliente/cliente.conf (executar da raiz)
-        if (access("config/cliente/cliente.conf", F_OK) == 0) {
-            strncpy(ficheiroConfig, "config/cliente/cliente.conf", sizeof(ficheiroConfig) - 1);
-        }
-        // Senão tentar ../config/cliente/cliente.conf (executar de build/)
-        else if (access("../config/cliente/cliente.conf", F_OK) == 0) {
-            strncpy(ficheiroConfig, "../config/cliente/cliente.conf", sizeof(ficheiroConfig) - 1);
-        }
-        else {
+        if (ajustarCaminho("config/cliente/cliente.conf", ficheiroConfig, sizeof(ficheiroConfig)) == 0) {
+             printf("Usando configuração default: %s\n\n", ficheiroConfig);
+        } else {
             fprintf(stderr, "ERRO: Ficheiro de configuração default não encontrado\n");
             fprintf(stderr, "-> Procurado: config/cliente/cliente.conf e ../config/cliente/cliente.conf\n");
             fprintf(stderr, "-> Especifique o caminho como argumento.\n");
             fprintf(stderr, "-> Exemplo: %s config/cliente/cliente.conf\n", argv[0]);
             return 1;
         }
-        printf("Usando configuração default: %s\n\n", ficheiroConfig);
     }
 
     // --- Lógica de Configuração do Cliente ---

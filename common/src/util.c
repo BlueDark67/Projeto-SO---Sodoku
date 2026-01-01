@@ -87,3 +87,23 @@ void err_dump(char *msg)
     perror(msg);
     exit(1);
 }
+/* Verifica se ficheiro existe e ajusta caminho se necessário (suporte build/) */
+int ajustarCaminho(const char *caminhoOriginal, char *bufferDestino, size_t tamanhoBuffer) {
+    // 1. Tentar caminho original (execução da raiz)
+    if (access(caminhoOriginal, F_OK) == 0) {
+        snprintf(bufferDestino, tamanhoBuffer, "%s", caminhoOriginal);
+        return 0;
+    }
+    
+    // 2. Tentar com prefixo ../ (execução de build/)
+    char caminhoAlternativo[512];
+    snprintf(caminhoAlternativo, sizeof(caminhoAlternativo), "../%s", caminhoOriginal);
+    
+    if (access(caminhoAlternativo, F_OK) == 0) {
+        snprintf(bufferDestino, tamanhoBuffer, "%s", caminhoAlternativo);
+        return 0;
+    }
+    
+    // 3. Não encontrado
+    return -1;
+}

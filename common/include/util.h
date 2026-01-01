@@ -13,4 +13,16 @@ extern int writen(int fd, char *ptr, int nbytes);
 extern int readline(int fd, char *ptr, int maxlen);
 extern void err_dump(char *msg);
 
+/**
+ * @brief Ajusta o caminho de um ficheiro verificando se existe localmente ou na diretoria pai
+ * 
+ * Útil para executar o programa tanto da raiz como da pasta build/
+ * 
+ * @param caminhoOriginal Caminho base do ficheiro (ex: "config/file.conf")
+ * @param bufferDestino Buffer onde será escrito o caminho resolvido
+ * @param tamanhoBuffer Tamanho do buffer de destino
+ * @return 0 se encontrou o ficheiro (caminho ajustado em bufferDestino), -1 se não encontrou
+ */
+int ajustarCaminho(const char *caminhoOriginal, char *bufferDestino, size_t tamanhoBuffer);
+
 #endif

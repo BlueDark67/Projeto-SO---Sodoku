@@ -206,11 +206,11 @@ int procurar_configs(const char *dir, char configs[][256], int max_configs) {
  * @return Total de ficheiros .conf encontrados
  */
 int procurar_configs_multi(char configs[][256], int max_configs) {
-    const char *dirs[] = {"config/servidor", "../config/servidor", NULL};
+    char dirPath[256];
     int total = 0;
     
-    for (int i = 0; dirs[i] != NULL && total < max_configs; i++) {
-        total += procurar_configs(dirs[i], &configs[total], max_configs - total);
+    if (ajustarCaminho("config/servidor", dirPath, sizeof(dirPath)) == 0) {
+        total = procurar_configs(dirPath, configs, max_configs);
     }
     
     return total;
