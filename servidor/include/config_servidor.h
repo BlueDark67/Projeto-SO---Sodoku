@@ -17,6 +17,8 @@ typedef struct {
     int delayErro;              // Delay entre mensagens de erro (segundos)
     int maxLinha;               // Tamanho máximo de buffer de comunicação
     int timeoutCliente;         // Timeout para operações de socket com cliente (segundos)
+    int maxClientesJogo;        // Máximo de clientes jogando simultaneamente (lobby)
+    int tempoAgregacao;         // Tempo de espera para agregar jogadores no lobby (segundos)
     ModoOperacao modo;          // PADRAO ou DEBUG
     int diasRetencaoLogs;       // Dias para manter logs (modo PADRAO)
     int limparLogsEncerramento; // Apagar logs ao encerrar (modo DEBUG)

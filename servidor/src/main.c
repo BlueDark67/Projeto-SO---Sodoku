@@ -23,6 +23,7 @@
 #include <sys/mman.h>   // Memória partilhada (mmap)
 #include <dirent.h>     // Manipulação de diretórios
 #include <signal.h>     // Signal handling (SIGINT, SIGCHLD)
+#include <pthread.h>    // POSIX threads para timer
 
 // Headers do projeto
 #include "config_servidor.h" // Estruturas e funções de configuração
@@ -41,6 +42,62 @@ static int sockfd_global = -1;
 static DadosPartilhados *dados_global = NULL;
 static ConfigServidor config_global;
 static int sou_processo_pai = 1;  // Flag para distinguir pai de filho
+static int numJogos_global = 0;    // Número de jogos carregados (para thread timer)
+static pthread_t timer_thread;     // Thread de controlo do timer de agregação
+
+/**
+ * @brief Thread que controla o timer de agregação do lobby
+ * 
+ * Verifica a cada 1 segundo se o tempo de agregação expirou.
+ * Se sim e há >= 2 jogadores no lobby, dispara o jogo.
+ */
+void* lobby_timer_thread(void* arg) {
+    (void)arg; // Não usado
+    
+    while (1) {
+        sleep(1); // Verificar a cada 1 segundo
+        
+        sem_wait(&dados_global->mutex);
+        
+        // Verificar se há jogadores no lobby e se o tempo expirou
+        if (dados_global->numClientesLobby >= 2 && dados_global->jogoIniciado == 0) {
+            time_t agora = time(NULL);
+            double tempo_decorrido = difftime(agora, dados_global->ultimaEntrada);
+            int restantes = config_global.tempoAgregacao - (int)tempo_decorrido;
+            
+            if (restantes > 0) {
+                 printf("\r[LOBBY] ⏳ A iniciar em %d segundos (%d/%d jogadores)...   ", 
+                        restantes, dados_global->numClientesLobby, config_global.maxClientesJogo);
+                 fflush(stdout);
+            }
+            
+            if (tempo_decorrido >= config_global.tempoAgregacao) {
+                // Timer expirou! Disparar jogo
+                printf("\n[LOBBY] Timer expirou (%d jogadores no lobby). A iniciar jogo...\n", 
+                       dados_global->numClientesLobby);
+                
+                // Selecionar jogo aleatório
+                dados_global->jogoAtual = rand() % numJogos_global;
+                dados_global->jogoIniciado = 1;
+                
+                char log_msg[256];
+                snprintf(log_msg, sizeof(log_msg), 
+                         "Jogo #%d iniciado por timeout - %d jogadores", 
+                         dados_global->jogoAtual, dados_global->numClientesLobby);
+                registarEvento(0, EVT_SERVIDOR_INICIADO, log_msg);
+                
+                // Despertar todos os clientes no lobby
+                for (int i = 0; i < dados_global->numClientesLobby; i++) {
+                    sem_post(&dados_global->lobby_semaforo);
+                }
+            }
+        }
+        
+        sem_post(&dados_global->mutex);
+    }
+    
+    return NULL;
+}
 
 /**
  * @brief Função de cleanup chamada antes de terminar o servidor
@@ -72,7 +129,7 @@ void cleanup_servidor(void) {
     // Destruir semáforos e libertar memória partilhada
     if (dados_global != NULL) {
         sem_destroy(&dados_global->mutex);
-        sem_destroy(&dados_global->barreira);
+        sem_destroy(&dados_global->lobby_semaforo);
         munmap(dados_global, sizeof(DadosPartilhados));
         dados_global = NULL;
         printf("[CLEANUP] ✓ Semáforos destruídos e memória partilhada libertada\n");
@@ -287,6 +344,18 @@ int main(int argc, char *argv[])
         return 1;
     }
     
+    // Validar configurações do Lobby
+    if (config.maxClientesJogo <= 1) {
+        fprintf(stderr, "ERRO: MAX_CLIENTES_JOGO inválido (%d) em %s\n", config.maxClientesJogo, ficheiroConfig);
+        fprintf(stderr, "-> Deve ser > 1. Adicione: MAX_CLIENTES_JOGO: 10\n");
+        return 1;
+    }
+    if (config.tempoAgregacao <= 0) {
+        fprintf(stderr, "ERRO: TEMPO_AGREGACAO inválido (%d) em %s\n", config.tempoAgregacao, ficheiroConfig);
+        fprintf(stderr, "-> Deve ser > 0. Adicione: TEMPO_AGREGACAO: 5\n");
+        return 1;
+    }
+    
     // Validar configurações de modo
     if (config.modo != MODO_PADRAO && config.modo != MODO_DEBUG) {
         fprintf(stderr, "ERRO: MODO não configurado em %s\n", ficheiroConfig);
@@ -417,13 +486,18 @@ int main(int argc, char *argv[])
     }
     
     dados_global = dados;  // Guardar em global para cleanup
-    dados->numClientes = 0;
-    dados->clientesEmEspera = 0;  // Inicialmente, nenhum cliente em espera
+    
+    // Inicializar estrutura do Lobby Dinâmico
+    dados->numClientesJogando = 0;      // Nenhum cliente jogando inicialmente
+    dados->numClientesLobby = 0;         // Lobby vazio
+    dados->ultimaEntrada = 0;            // Sem entradas ainda
+    dados->jogoAtual = -1;               // Nenhum jogo selecionado
+    dados->jogoIniciado = 0;             // Jogo não iniciado
 
     // Inicializa semáforos
     // O '1' no meio significa "partilhado entre processos"
-    sem_init(&dados->mutex, 1, 1);    // Mutex começa a 1 (livre)
-    sem_init(&dados->barreira, 1, 0); // Barreira começa a 0 (bloqueado)
+    sem_init(&dados->mutex, 1, 1);          // Mutex começa a 1 (livre)
+    sem_init(&dados->lobby_semaforo, 1, 0); // Semáforo do lobby começa a 0 (bloqueado)
 
     /* Cria socket stream (TCP) para Internet */
     printf("6. A criar socket TCP (AF_INET)...\n");
@@ -453,7 +527,23 @@ int main(int argc, char *argv[])
     printf("8. A escutar na porta %d (fila máxima: %d)...\n", config.porta, config.maxFila);
     listen(sockfd, config.maxFila);
 
-    printf("   ✓ Servidor pronto. À espera de clientes.\n\n");
+    // Inicializar gerador de números aleatórios para seleção de jogos
+    srand(time(NULL));
+    numJogos_global = numJogos;  // Guardar para thread de timer
+    
+    // Criar thread de controlo do timer de agregação do lobby
+    printf("9. A iniciar thread de timer do lobby (agregação: %ds, max clientes: %d)...\n", 
+           config.tempoAgregacao, config.maxClientesJogo);
+    if (pthread_create(&timer_thread, NULL, lobby_timer_thread, NULL) != 0) {
+        err_dump("Servidor: erro ao criar thread de timer");
+    }
+    pthread_detach(timer_thread);  // Thread independente
+
+    printf("   ✓ Sistema de Lobby Dinâmico ativo.\n");
+    printf("   📊 Configuração:\n");
+    printf("      • Máximo de jogadores por jogo: %d\n", config.maxClientesJogo);
+    printf("      • Tempo de agregação: %d segundos\n", config.tempoAgregacao);
+    printf("      • Modo: Free-for-All (todos competem no mesmo tabuleiro)\n\n");
 
     for (;;)
     {
