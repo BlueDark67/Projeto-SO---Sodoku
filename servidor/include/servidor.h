@@ -9,6 +9,7 @@
 typedef struct {
     int numClientesJogando;     // Total de clientes atualmente jogando (máx: MAX_CLIENTES_JOGO)
     int numClientesLobby;       // Clientes aguardando no lobby
+    int numJogadoresAtivos;     // Clientes que estão atualmente a resolver o puzzle
     time_t ultimaEntrada;       // Timestamp da última conexão (para timer de agregação)
     int jogoAtual;              // ID do jogo atual sendo jogado (índice no array de jogos)
     int jogoIniciado;           // Flag: 1 = jogo em curso, 0 = aguardando jogadores

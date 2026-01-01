@@ -490,6 +490,7 @@ int main(int argc, char *argv[])
     // Inicializar estrutura do Lobby Dinâmico
     dados->numClientesJogando = 0;      // Nenhum cliente jogando inicialmente
     dados->numClientesLobby = 0;         // Lobby vazio
+    dados->numJogadoresAtivos = 0;       // Nenhum jogador ativo
     dados->ultimaEntrada = 0;            // Sem entradas ainda
     dados->jogoAtual = -1;               // Nenhum jogo selecionado
     dados->jogoIniciado = 0;             // Jogo não iniciado
