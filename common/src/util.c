@@ -107,3 +107,9 @@ int ajustarCaminho(const char *caminhoOriginal, char *bufferDestino, size_t tama
     // 3. Não encontrado
     return -1;
 }
+
+/* Limpa o ecrã usando códigos ANSI */
+void limparEcra(void) {
+    printf("\033[H\033[J");
+    fflush(stdout);
+}

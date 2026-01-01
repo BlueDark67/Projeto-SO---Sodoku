@@ -25,4 +25,9 @@ extern void err_dump(char *msg);
  */
 int ajustarCaminho(const char *caminhoOriginal, char *bufferDestino, size_t tamanhoBuffer);
 
+/**
+ * @brief Limpa o ecrã do terminal de forma portável (ANSI escape codes)
+ */
+void limparEcra(void);
+
 #endif

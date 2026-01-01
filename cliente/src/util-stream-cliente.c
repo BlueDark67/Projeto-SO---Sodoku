@@ -20,7 +20,7 @@
 
 #include "util.h"
 #include <string.h>
-#include <stdlib.h> // system() para limpar ecrã
+#include <stdlib.h> 
 #include <time.h>   // Temporizador de resolução
 #include <unistd.h> // sleep() para animação
 #include <errno.h>  // Para EAGAIN, EWOULDBLOCK
@@ -66,9 +66,8 @@ void imprimirTabuleiroCliente(const char *tabuleiro)
 void atualizarUICliente(MensagemSudoku *msg, time_t horaInicio)
 {
 
-    // Limpa o ecrã (funciona em Linux/macOS)
-    // Pode usar system("cls") no Windows
-    system("clear");
+    // Limpa o ecrã de forma portável
+    limparEcra();
 
     time_t agora = time(NULL);
     double tempoDecorrido = difftime(agora, horaInicio);
