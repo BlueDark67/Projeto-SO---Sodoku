@@ -1,7 +1,25 @@
+/*
+ * cliente/src/config_cliente.c
+ * 
+ * Gestão de Configurações do Cliente
+ * 
+ * Este módulo lê configurações de ficheiros .conf para o cliente
+ * 
+ * Parâmetros suportados:
+ * - IP_SERVIDOR: Endereço IP do servidor (formato: xxx.xxx.xxx.xxx)
+ * - PORTA: Porta TCP do servidor
+ * - ID_CLIENTE: Identificador único deste cliente
+ * - LOG: Caminho para ficheiro de log do cliente
+ * 
+ * Formato do ficheiro .conf:
+ * PARAMETRO: valor
+ * Linhas começadas por # são comentários
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <ctype.h> // Define a função isspace()
+#include <ctype.h>
 #include "config_cliente.h"
 
 #define MAX_LINHA 256
@@ -27,7 +45,13 @@ static void trim(char *str) {
 }
 
 /**
- * @brief Lê o ficheiro de configuração do cliente.
+ * @brief Lê e valida o ficheiro de configuração do cliente
+ * 
+ * Carrega configurações de conexão e identificação do cliente
+ * 
+ * @param nomeFicheiro Caminho para o ficheiro .conf
+ * @param config Estrutura onde as configurações serão armazenadas
+ * @return 0 em sucesso, -1 em erro
  */
 int lerConfigCliente(const char *nomeFicheiro, ConfigCliente *config) {
     FILE *f = fopen(nomeFicheiro, "r");
@@ -39,11 +63,14 @@ int lerConfigCliente(const char *nomeFicheiro, ConfigCliente *config) {
     char linha[MAX_LINHA];
     int linha_num = 0;
 
-    // Inicializar com valores inválidos para forçar configuração explícita
+    // Inicializar com valores inválidos para detetar parâmetros em falta
+    // Se ficarem com estes valores, significa que não foram configurados
     config->idCliente = -1;
     config->porta = -1;
     config->ipServidor[0] = '\0';
     config->ficheiroLog[0] = '\0';
+
+    // Processar cada linha do ficheiro
 
     while (fgets(linha, sizeof(linha), f)) {
         linha_num++;
@@ -71,23 +98,23 @@ int lerConfigCliente(const char *nomeFicheiro, ConfigCliente *config) {
 
         // Separa o valor
         // Separa o valor
-strncpy(valor, separador + 1, sizeof(valor) - 1);
+        strncpy(valor, separador + 1, sizeof(valor) - 1);
 
-// --- Início do NOVO código de limpeza ---
-char *valor_limpo = valor;
+        // --- Início do NOVO código de limpeza ---
+        char *valor_limpo = valor;
 
-// 1. Remove espaços do início
-while (isspace((unsigned char)*valor_limpo)) {
-    valor_limpo++;
-}
+        // 1. Remove espaços do início
+        while (isspace((unsigned char)*valor_limpo)) {
+            valor_limpo++;
+        }
 
-// 2. Remove espaços do fim
-char *fim = valor_limpo + strlen(valor_limpo) - 1;
-while (fim > valor_limpo && isspace((unsigned char)*fim)) {
-    fim--;
-}
-*(fim + 1) = '\0'; // Escreve o novo fim da string
-// --- Fim do NOVO código de limpeza ---
+        // 2. Remove espaços do fim
+        char *fim = valor_limpo + strlen(valor_limpo) - 1;
+        while (fim > valor_limpo && isspace((unsigned char)*fim)) {
+            fim--;
+        }
+        *(fim + 1) = '\0'; // Escreve o novo fim da string
+        // --- Fim do NOVO código de limpeza ---
 
         // Atribui os valores à estrutura
         if (strcmp(chave, "IP_SERVIDOR") == 0) {

@@ -1,10 +1,34 @@
+/*
+ * servidor/src/config_servidor.c
+ * 
+ * Gestão de Configurações do Servidor
+ * 
+ * Este módulo lê e valida configurações de ficheiros .conf
+ * 
+ * Parâmetros suportados:
+ * - PORTA: Porta TCP para o servidor escutar
+ * - MAX_FILA: Número máximo de conexões em espera
+ * - MAX_JOGOS: Capacidade máxima de jogos a carregar
+ * - DELAY_ERRO: Segundos de espera após erro (anticheat)
+ * - MAXLINE: Tamanho máximo do buffer de comunicação
+ * - JOGOS: Caminho para ficheiro de jogos
+ * - LOG: Caminho para ficheiro de log
+ * 
+ * Formato do ficheiro .conf:
+ * PARAMETRO: valor
+ * Linhas começadas por # são comentários
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include "config_servidor.h"
 
-// Remove espaços e caracteres de controle (como \r, \n) do final da string
+/**
+ * @brief Remove espaços e caracteres de controle do final de uma string
+ * @param str String a processar (modificada in-place)
+ */
 static void trim(char *str) {
     char *end = str + strlen(str) - 1;
     while (end >= str && (isspace((unsigned char)*end) || *end == '\r')) {
@@ -13,6 +37,16 @@ static void trim(char *str) {
     *(end + 1) = '\0';
 }
 
+/**
+ * @brief Lê e valida o ficheiro de configuração do servidor
+ * 
+ * Carrega todas as configurações de um ficheiro .conf e valida
+ * que todos os parâmetros obrigatórios estão presentes
+ * 
+ * @param nomeFicheiro Caminho para o ficheiro .conf
+ * @param config Estrutura onde as configurações serão armazenadas
+ * @return 0 em sucesso, -1 em erro
+ */
 int lerConfigServidor(const char *nomeFicheiro, ConfigServidor *config) {
     FILE *f = fopen(nomeFicheiro, "r");
     if (!f) {
@@ -32,14 +66,17 @@ int lerConfigServidor(const char *nomeFicheiro, ConfigServidor *config) {
 
     char linha[200];
     while (fgets(linha, sizeof(linha), f)) {
-        // Ignorar linhas vazias e comentários
+        // Ignorar linhas vazias e comentários (começam com #)
         if (linha[0] == '\n' || linha[0] == '#') {
             continue;
         }
         
+        // Parse formato: PARAMETRO: valor
         char parametro[50], valor[150];
         if (sscanf(linha, "%49[^:]: %149[^\n]", parametro, valor) == 2) {
-            trim(valor); // Remove \r e espaços do final
+            trim(valor); // Limpar espaços e \r do final
+            
+            // Mapear cada parâmetro para o campo correspondente
             if (strcmp(parametro, "JOGOS") == 0) {
                 strcpy(config->ficheiroJogos, valor);
             } else if (strcmp(parametro, "SOLUCOES") == 0) {

@@ -1,18 +1,32 @@
 /*
- * util-stream-cliente.c
- * Lógica de processamento do cliente
+ * cliente/src/util-stream-cliente.c
+ * 
+ * Lógica de Processamento e Interface do Cliente
+ * 
+ * Este módulo implementa:
+ * - Comunicação com o servidor (pedidos e respostas)
+ * - Simulação de resolução de jogos Sudoku
+ * - Interface de utilizador atualizável em tempo real
+ * - Apresentação visual dos tabuleiros
+ * - Temporizador de resolução
+ * - Registo de eventos no log do cliente
+ * 
+ * Protocolo de comunicação:
+ * 1. Cliente envia PEDIR_JOGO
+ * 2. Servidor responde com ENVIAR_JOGO
+ * 3. Cliente "resolve" e envia ENVIAR_SOLUCAO
+ * 4. Servidor verifica e envia RESULTADO
  */
 
 #include "util.h"
 #include <string.h>
-#include <stdlib.h> // Para system("clear")
-#include <time.h>   // Para o temporizador
-#include <unistd.h> // Para sleep()
+#include <stdlib.h> // system() para limpar ecrã
+#include <time.h>   // Temporizador de resolução
+#include <unistd.h> // sleep() para animação
 
-// --- INCLUDES ADICIONADOS ---
-#include "protocolo.h" // common/include
-#include "logs_cliente.h" // Logs do cliente
-// -----------------------------
+// Headers do projeto
+#include "protocolo.h"      // Tipos de mensagens
+#include "logs_cliente.h"   // Sistema de logging
 
 /**
  * @brief Imprime um tabuleiro de forma visual no terminal do cliente.
@@ -38,7 +52,15 @@ void imprimirTabuleiroCliente(const char *tabuleiro)
 }
 
 /**
- * @brief NOVA FUNÇÃO: Limpa o ecrã e redesenha a UI do cliente
+ * @brief Atualiza a interface do utilizador do cliente
+ * 
+ * Limpa o ecrã e redesenha toda a interface com:
+ * - Informações do jogo atual (ID)
+ * - Tempo decorrido desde o início
+ * - Tabuleiro visual atualizado
+ * 
+ * @param msg Mensagem contendo o jogo a apresentar
+ * @param horaInicio Timestamp do início da resolução (para calcular tempo)
  */
 void atualizarUICliente(MensagemSudoku *msg, time_t horaInicio)
 {

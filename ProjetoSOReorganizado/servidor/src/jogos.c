@@ -1,9 +1,36 @@
+/*
+ * servidor/src/jogos.c
+ * 
+ * Gestão e Validação de Jogos Sudoku
+ * 
+ * Este módulo fornece funções para:
+ * - Carregar jogos de um ficheiro CSV (formato: id,tabuleiro,solução)
+ * - Verificar soluções submetidas pelos clientes
+ * - Validar tabuleiros Sudoku (regras de linhas/colunas/regiões)
+ * - Contar erros e acertos nas soluções
+ * 
+ * Formato do ficheiro de jogos:
+ * Cada linha: ID,TABULEIRO(81 dígitos),SOLUCAO(81 dígitos)
+ * Exemplo: 1,003020600900305001001806400...,483921657967345821...
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
 #include "jogos.h"
 
+/**
+ * @brief Carrega jogos de um ficheiro de texto
+ * 
+ * Lê um ficheiro CSV onde cada linha representa um jogo no formato:
+ * id,tabuleiro,solucao
+ * 
+ * @param ficheiro Caminho para o ficheiro de jogos
+ * @param jogos Array onde os jogos serão armazenados
+ * @param maxJogos Capacidade máxima do array
+ * @return Número de jogos carregados com sucesso, ou -1 em erro
+ */
 int carregarJogos(const char *ficheiro, Jogo jogos[], int maxJogos) {
     printf("DEBUG: Tentando abrir ficheiro: '%s'\n", ficheiro);
     
@@ -21,13 +48,14 @@ int carregarJogos(const char *ficheiro, Jogo jogos[], int maxJogos) {
     printf("DEBUG: Ficheiro aberto com sucesso!\n");
 
     int count = 0;
-    char linha[300]; //linha so pode ter ate 300 caracteres
+    char linha[300]; // Buffer para cada linha do ficheiro
     int linha_num = 0;
     
+    // Processar cada linha do ficheiro
     while (fgets(linha, sizeof(linha), f) && count < maxJogos) {
         linha_num++;
         
-        // Remove newline e carriage return
+        // Remover caracteres de fim de linha
         linha[strcspn(linha, "\r\n")] = 0;
         
         // Ignorar linhas vazias
@@ -36,12 +64,13 @@ int carregarJogos(const char *ficheiro, Jogo jogos[], int maxJogos) {
             continue;
         }
         
-        // Debug: mostrar primeiras 3 linhas
+        // Debug: mostrar primeiras 3 linhas para verificação
         if (linha_num <= 3) {
             printf("DEBUG: Linha %d (primeiros 50 chars): %.50s...\n", linha_num, linha);
         }
         
-        // Parse: id,tabuleiro,solucao
+        // Parse CSV: dividir por vírgulas
+        // Formato esperado: id,tabuleiro,solucao
         char *token = strtok(linha, ",");
         if (!token) {
             printf("DEBUG: Erro no parsing da linha %d - sem ID\n", linha_num);

@@ -1,3 +1,27 @@
+/*
+ * servidor/src/logs.c
+ * 
+ * Sistema de Logging do Servidor
+ * 
+ * Fornece funções para registar eventos do servidor em ficheiro:
+ * - Inicialização do servidor
+ * - Carregamento de jogos
+ * - Conexões e desconexões de clientes
+ * - Pedidos de jogos
+ * - Submissão de soluções
+ * - Resultados de verificação
+ * - Erros diversos
+ * 
+ * Formato do log:
+ * IdUtilizador | Hora | Acontecimento | Descrição
+ * 
+ * Características:
+ * - Criação automática de diretórios
+ * - Timestamps automáticos
+ * - Formatação alinhada em colunas
+ * - Flush automático (dados escritos imediatamente)
+ */
+
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
@@ -8,7 +32,16 @@
 
 static FILE *ficheiro_log = NULL;
 
-// Cria diretórios recursivamente
+/**
+ * @brief Cria diretórios recursivamente (como mkdir -p)
+ * 
+ * Se o caminho for "logs/servidor/file.log", cria:
+ * - logs/
+ * - logs/servidor/
+ * 
+ * @param path Caminho completo incluindo o nome do ficheiro
+ * @return 0 em sucesso
+ */
 static int criar_diretorios(const char *path) {
     char tmp[256];
     char *p = NULL;
@@ -38,7 +71,6 @@ int inicializarLog(const char *ficheiroLog) {
     // Verificar se o diretório existe, se não criar
     struct stat st = {0};
     if (stat(dir, &st) == -1) {
-        printf("Diretório de logs não existe. A criar: %s\n", dir);
         criar_diretorios(dir);
     }
     free(caminho_copia);
@@ -87,10 +119,6 @@ void registarEvento(int idUtilizador, CodigoEvento evento, const char *descricao
     fprintf(ficheiro_log, "%-12s %-8s %-18s %s\n", 
             id_str, buffer_tempo, obterDescricaoEvento(evento), descricao ? descricao : "");
     fflush(ficheiro_log);
-    
-    // Também imprimir no console para debug
-    printf("[LOG] [%s] User:%d Event:%d - %s\n", 
-           buffer_tempo, idUtilizador, evento, descricao ? descricao : "");
 }
 
 void fecharLog() {

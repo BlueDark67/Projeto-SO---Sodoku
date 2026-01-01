@@ -1,7 +1,15 @@
 /*
- * cliente/main.c
- * Cliente Sudoku - Fase 2
- * Baseado no exemplo unix-stream-client.c, adaptado para AF_INET (Internet)
+ * cliente/src/main_cliente.c
+ * 
+ * Programa principal do Cliente Sudoku
+ * 
+ * Este cliente:
+ * - Carrega configurações de ficheiro .conf
+ * - Conecta-se ao servidor via TCP/IP
+ * - Inicializa sistema de logs
+ * - Pede jogos, simula resolução e envia soluções
+ * - Recebe e apresenta resultados
+ * - Trata path resolution para funcionar em diferentes diretórios
  */
 
 #include <stdio.h>
@@ -10,14 +18,16 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h> // <--- MUDANÇA (em vez de sys/un.h)
-#include <arpa/inet.h>  // <--- NOVO (para converter IPs)
+#include <netinet/in.h> // Estruturas para sockets TCP/IP
+#include <arpa/inet.h>  // Conversão de endereços IP
 
-// Ficheiros do teu projeto
-#include "config_cliente.h" // Configuração do cliente
-#include "protocolo.h"      // O teu protocolo partilhado (common/include)
-#include "util.h"           // Funções utilitárias (readn, writen... common/include)
-#include "logs_cliente.h"   // Sistema de logs do cliente
+// Headers do projeto
+#include "config_cliente.h" // Gestão de configuração
+#include "protocolo.h"      // Protocolo de comunicação
+#include "util.h"           // Funções auxiliares de rede
+#include "logs_cliente.h"   // Sistema de logging do cliente
+
+// Declaração da função principal de comunicação
 void str_cli(FILE *fp, int sockfd, int idCliente);
 
 int main(int argc, char *argv[])
@@ -71,7 +81,8 @@ int main(int argc, char *argv[])
         return 1;
     }
     
-    // Validar configurações obrigatórias
+    // Validar campos obrigatórios da configuração
+    // Sem estas configurações, o cliente não pode funcionar
     if (strlen(config.ipServidor) == 0) {
         fprintf(stderr, "ERRO: Configuração 'IP_SERVIDOR' não encontrada em %s\n", ficheiroConfig);
         return 1;

@@ -1,26 +1,46 @@
+/*
+ * servidor/src/main.c
+ * 
+ * Programa principal do Servidor Sudoku
+ * 
+ * Este servidor:
+ * - Carrega configurações de ficheiro .conf
+ * - Carrega jogos de um ficheiro de dados
+ * - Aceita conexões de múltiplos clientes via TCP/IP
+ * - Usa memória partilhada e semáforos para sincronizar clientes
+ * - Cria processos-filho para atender cada cliente
+ * - Regista eventos detalhados em ficheiro de log
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h> // <--- MUDANÇA (em vez de sys/un.h)
-#include <arpa/inet.h>  // <--- NOVO (para converter IPs)
-#include <sys/mman.h>   // <--- Necessário para mmap (memória partilhada)
-#include <dirent.h>     // Para listar diretórios
+#include <netinet/in.h> // Estruturas para sockets TCP/IP
+#include <arpa/inet.h>  // Funções para conversão de endereços IP
+#include <sys/mman.h>   // Memória partilhada (mmap)
+#include <dirent.h>     // Manipulação de diretórios
 
-// Ficheiros do teu projeto
-#include "config_servidor.h" // Da tua Fase 1
-#include "jogos.h"           // Da tua Fase 1
-#include "logs.h"            // Da tua Fase 1
-#include "protocolo.h"       // O teu protocolo partilhado (common/include)
-#include "util.h"            // Funções de rede (common/include)
-#include "servidor.h"
+// Headers do projeto
+#include "config_servidor.h" // Estruturas e funções de configuração
+#include "jogos.h"           // Gestão e verificação de jogos Sudoku
+#include "logs.h"            // Sistema de logging
+#include "protocolo.h"       // Protocolo de comunicação cliente-servidor
+#include "util.h"            // Funções auxiliares de rede (readn/writen)
+#include "servidor.h"        // Definições específicas do servidor
 
 #define CONFIG_DIR "config/servidor"
 #define MAX_CONFIGS 50
 
-// Procura ficheiros .conf no diretório especificado
+/**
+ * @brief Procura ficheiros .conf num diretório específico
+ * @param dir Caminho do diretório a pesquisar
+ * @param configs Array para guardar os caminhos encontrados
+ * @param max_configs Tamanho máximo do array
+ * @return Número de ficheiros .conf encontrados
+ */
 int procurar_configs(const char *dir, char configs[][256], int max_configs) {
     DIR *d;
     struct dirent *entry;
@@ -46,7 +66,16 @@ int procurar_configs(const char *dir, char configs[][256], int max_configs) {
     return count;
 }
 
-// Procura configs em múltiplos diretórios possíveis
+/**
+ * @brief Procura ficheiros de configuração em vários diretórios possíveis
+ * 
+ * Permite que o servidor seja executado tanto da raiz do projeto
+ * como da pasta build/, procurando automaticamente em ambos os locais
+ * 
+ * @param configs Array para armazenar os caminhos dos ficheiros encontrados
+ * @param max_configs Número máximo de configurações a procurar
+ * @return Total de ficheiros .conf encontrados
+ */
 int procurar_configs_multi(char configs[][256], int max_configs) {
     const char *dirs[] = {"config/servidor", "../config/servidor", NULL};
     int total = 0;
@@ -73,7 +102,12 @@ int main(int argc, char *argv[])
     printf("   SERVIDOR SUDOKU\n");
     printf("===========================================\n\n");
 
+    /* ========================================
+     * FASE 1: INICIALIZAÇÃO E CONFIGURAÇÃO
+     * ======================================== */
+    
     // --- Verificar argumento de configuração ---
+    // Aceita ficheiro de configuração como argumento ou usa default
     if (argc >= 2) {
         // User passou ficheiro de configuração
         strncpy(ficheiroConfig, argv[1], sizeof(ficheiroConfig) - 1);

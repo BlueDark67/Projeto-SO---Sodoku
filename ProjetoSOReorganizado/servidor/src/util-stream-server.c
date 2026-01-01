@@ -1,23 +1,47 @@
 /*
- * util-stream-server.c
- * Lógica de processamento do servidor
+ * servidor/src/util-stream-server.c
+ * 
+ * Lógica de processamento do servidor - Handler de clientes
+ * 
+ * Este ficheiro contém a função str_echo() que é executada por cada
+ * processo-filho criado pelo servidor para atender um cliente.
+ * 
+ * Responsabilidades:
+ * - Sincronizar clientes usando semáforos (barreira)
+ * - Receber pedidos de jogos dos clientes
+ * - Enviar jogos do banco de dados
+ * - Receber soluções dos clientes
+ * - Verificar correção das soluções
+ * - Registar todos os eventos em log
+ * - Gerir erros e desconexões
  */
 
 #include "util.h"
 #include <string.h>
 
-// --- INCLUDES ADICIONADOS ---
-// Precisamos disto para saber o que é MensagemSudoku, Jogo, etc.
-#include "protocolo.h" // common/include
-#include "config_servidor.h"
-#include "jogos.h"
-#include "logs.h"
-#include "servidor.h"
-// -----------------------------
+// Headers necessários para o protocolo e gestão de jogos
+#include "protocolo.h"        // Definição de mensagens e tipos
+#include "config_servidor.h"  // Configurações
+#include "jogos.h"            // Verificação de soluções
+#include "logs.h"             // Sistema de logging
+#include "servidor.h"         // Estruturas compartilhadas
 
-/* * Função principal do processo-filho.
- * Recebe mensagens do cliente (sockfd) e age de acordo.
- * Usa a lista de jogos (jogos) para validar.
+/**
+ * @brief Função principal executada por cada processo-filho
+ * 
+ * Esta função implementa o protocolo de comunicação com o cliente:
+ * 1. Sincroniza com outros clientes (barreira)
+ * 2. Aguarda pedido de jogo
+ * 3. Envia jogo aleatório do banco de dados
+ * 4. Recebe solução do cliente
+ * 5. Verifica e envia resultado
+ * 6. Repete até o cliente desconectar
+ * 
+ * @param sockfd Socket de comunicação com o cliente
+ * @param jogos Array de jogos disponíveis
+ * @param numJogos Número total de jogos carregados
+ * @param dados Ponteiro para memória partilhada (sincronização)
+ * @param maxLinha Tamanho máximo do buffer (configurável)
  */
 void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, int maxLinha)
 {
@@ -31,25 +55,31 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
         maxLinha = 512;
     }
 
-    sem_wait(&dados->mutex);
+    /* ========================================
+     * SINCRONIZAÇÃO ENTRE CLIENTES
+     * ======================================== */
+    
+    // Zona crítica: incrementar contador de clientes
+    sem_wait(&dados->mutex);  // Entrar na secção crítica
     dados->numClientes++;
     int meus_clientes = dados->numClientes;
-    sem_post(&dados->mutex); // Sair da zona crítica
+    sem_post(&dados->mutex);  // Sair da secção crítica
 
     printf("[DEBUG] Cliente conectado. Total: %d\n", meus_clientes);
 
+    // Barreira de sincronização: aguardar mínimo de 2 clientes
     if (meus_clientes < 2)
     {
         printf("Servidor: Cliente 1 à espera do Cliente 2...\n");
-        // Se somos o primeiro, esperamos na barreira
-        // O processo fica parado aqui até alguém fazer sem_post
+        // Primeiro cliente: bloqueia na barreira
+        // Fica em espera até outro cliente fazer sem_post na barreira
         sem_wait(&dados->barreira);
         printf("Servidor: Cliente 1 desbloqueado! O jogo vai começar.\n");
     }
     else
     {
         printf("Servidor: Cliente 2 chegou! A desbloquear Cliente 1.\n");
-        // Se somos o segundo (ou mais), libertamos quem está preso
+        // Cliente 2 ou posterior: liberta o primeiro cliente
         sem_post(&dados->barreira);
     }
 

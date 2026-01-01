@@ -1,3 +1,33 @@
+/*
+ * cliente/src/logs_cliente.c
+ * 
+ * Sistema de Logging do Cliente
+ * 
+ * Regista a perspetiva do cliente nas interações:
+ * - Início do cliente
+ * - Conexão ao servidor
+ * - Jogos recebidos (com contagem de células)
+ * - Soluções enviadas (com tempo de resolução)
+ * - Resultados (correto/incorreto)
+ * - Novos pedidos
+ * - Encerramento
+ * 
+ * Formato do log:
+ * Data/Hora | Evento | Descrição
+ * 
+ * Eventos suportados (CodigoEventoCliente):
+ * - EVTC_CLIENTE_INICIADO: Início da execução
+ * - EVTC_CONEXAO_ESTABELECIDA: Ligação ao servidor
+ * - EVTC_JOGO_RECEBIDO: Recebeu jogo do servidor
+ * - EVTC_SOLUCAO_ENVIADA: Enviou solução
+ * - EVTC_RESULTADO_RECEBIDO: Recebeu verificação
+ * - EVTC_SOLUCAO_CORRETA: Acertou
+ * - EVTC_SOLUCAO_INCORRETA: Errou
+ * - EVTC_NOVO_JOGO_PEDIDO: Pediu novo jogo
+ * - EVTC_CONEXAO_FECHADA: Desconectou
+ * - EVTC_ERRO: Erro qualquer
+ */
+
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
@@ -9,7 +39,15 @@
 static FILE *ficheiro_log_cliente = NULL;
 static int id_cliente_global = 0;
 
-// Cria diretórios recursivamente
+/**
+ * @brief Cria diretórios de forma recursiva
+ * 
+ * Funciona como mkdir -p, criando todos os diretórios intermédios
+ * necessários no caminho especificado
+ * 
+ * @param path Caminho do diretório a criar
+ * @return 0 em sucesso
+ */
 static int criar_diretorios_cliente(const char *path) {
     char tmp[256];
     char *p = NULL;
@@ -31,6 +69,16 @@ static int criar_diretorios_cliente(const char *path) {
     return 0;
 }
 
+/**
+ * @brief Inicializa o sistema de logging do cliente
+ * 
+ * Abre ou cria o ficheiro de log, criando diretórios se necessário.
+ * Escreve cabeçalho se o ficheiro for novo.
+ * 
+ * @param ficheiroLog Caminho completo para o ficheiro de log
+ * @param idCliente ID do cliente (usado no cabeçalho)
+ * @return 0 em sucesso, -1 em erro
+ */
 int inicializarLogCliente(const char *ficheiroLog, int idCliente) {
     id_cliente_global = idCliente;
     
@@ -41,7 +89,6 @@ int inicializarLogCliente(const char *ficheiroLog, int idCliente) {
     // Verificar se o diretório existe, se não criar
     struct stat st = {0};
     if (stat(dir, &st) == -1) {
-        printf("Diretório de logs não existe. A criar: %s\n", dir);
         criar_diretorios_cliente(dir);
     }
     free(caminho_copia);
