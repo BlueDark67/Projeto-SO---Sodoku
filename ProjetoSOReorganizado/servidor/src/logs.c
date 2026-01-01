@@ -1,11 +1,49 @@
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <stdlib.h>
+#include <libgen.h>
 #include "logs.h"
 
 static FILE *ficheiro_log = NULL;
 
+// Cria diretórios recursivamente
+static int criar_diretorios(const char *path) {
+    char tmp[256];
+    char *p = NULL;
+    size_t len;
+
+    snprintf(tmp, sizeof(tmp), "%s", path);
+    len = strlen(tmp);
+    if (tmp[len - 1] == '/')
+        tmp[len - 1] = 0;
+    
+    for (p = tmp + 1; *p; p++) {
+        if (*p == '/') {
+            *p = 0;
+            mkdir(tmp, 0755);
+            *p = '/';
+        }
+    }
+    mkdir(tmp, 0755);
+    return 0;
+}
+
 int inicializarLog(const char *ficheiroLog) {
+    // Extrair o diretório do caminho do ficheiro
+    char *caminho_copia = strdup(ficheiroLog);
+    char *dir = dirname(caminho_copia);
+    
+    // Verificar se o diretório existe, se não criar
+    struct stat st = {0};
+    if (stat(dir, &st) == -1) {
+        printf("Diretório de logs não existe. A criar: %s\n", dir);
+        criar_diretorios(dir);
+    }
+    free(caminho_copia);
+    
+    // Abrir/criar o ficheiro de log
     ficheiro_log = fopen(ficheiroLog, "a");
     if (!ficheiro_log) {
         printf("Erro ao abrir ficheiro de log: %s\n", ficheiroLog);
