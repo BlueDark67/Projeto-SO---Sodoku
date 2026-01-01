@@ -59,21 +59,10 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
         maxLinha = 512;
     }
 
-    /* Aplicar timeout de socket */
-    struct timeval timeout;
-    timeout.tv_sec = timeoutCliente;
-    timeout.tv_usec = 0;
-    
-    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
-        registarEvento(0, EVT_ERRO_GERAL, "Falha ao configurar SO_RCVTIMEO no socket do cliente");
-    }
-    if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
-        registarEvento(0, EVT_ERRO_GERAL, "Falha ao configurar SO_SNDTIMEO no socket do cliente");
-    }
-    
-    char log_timeout[256];
-    snprintf(log_timeout, sizeof(log_timeout), "Timeout de socket configurado: %d segundos", timeoutCliente);
-    registarEvento(0, EVT_SERVIDOR_INICIADO, log_timeout);
+    /* NOTA: O timeout será aplicado APÓS a sincronização
+     * Durante a barreira, o cliente pode estar à espera indefinidamente
+     * até que outro cliente se conecte. Não faz sentido ter timeout aqui.
+     */
 
     /* ========================================
      * SINCRONIZAÇÃO ENTRE CLIENTES
@@ -90,7 +79,7 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
     // Barreira de sincronização: aguardar mínimo de 2 clientes
     if (meus_clientes < 2)
     {
-        printf("Servidor: Cliente 1 à espera do Cliente 2...\n");
+        printf("Servidor: Cliente 1 à espera do Cliente 2 (sem timeout)...\n");
         // Primeiro cliente: bloqueia na barreira
         // Fica em espera até outro cliente fazer sem_post na barreira
         sem_wait(&dados->barreira);
@@ -102,6 +91,23 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
         // Cliente 2 ou posterior: liberta o primeiro cliente
         sem_post(&dados->barreira);
     }
+
+    /* Aplicar timeout de socket APÓS sincronização */
+    struct timeval timeout;
+    timeout.tv_sec = timeoutCliente;
+    timeout.tv_usec = 0;
+    
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+        registarEvento(0, EVT_ERRO_GERAL, "Falha ao configurar SO_RCVTIMEO no socket do cliente");
+    }
+    if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
+        registarEvento(0, EVT_ERRO_GERAL, "Falha ao configurar SO_SNDTIMEO no socket do cliente");
+    }
+    
+    char log_timeout[256];
+    snprintf(log_timeout, sizeof(log_timeout), "Timeout de socket ativado: %d segundos (%d minutos)", timeoutCliente, timeoutCliente / 60);
+    registarEvento(0, EVT_SERVIDOR_INICIADO, log_timeout);
+    printf("[DEBUG] Timeout ativado: %d segundos\n", timeoutCliente);
 
     // Lógica principal do servidor
     for (;;)
