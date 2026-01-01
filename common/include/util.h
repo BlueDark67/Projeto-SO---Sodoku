@@ -26,6 +26,16 @@ void erro(const char *fmt, ...);
 void aviso(const char *fmt, ...);
 
 /**
+ * @brief Lê um número inteiro do stdin de forma robusta
+ * 
+ * @param prompt Mensagem a mostrar ao utilizador
+ * @param min Valor mínimo aceitável
+ * @param max Valor máximo aceitável
+ * @return O valor inteiro lido e validado
+ */
+int lerInteiro(const char *prompt, int min, int max);
+
+/**
  * @brief Ajusta o caminho de um ficheiro verificando se existe localmente ou na diretoria pai
  * 
  * Útil para executar o programa tanto da raiz como da pasta build/

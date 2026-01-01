@@ -278,18 +278,9 @@ int main(int argc, char *argv[])
         }
         
         // Pedir ao user para escolher
-        int escolha = -1;
-        while (escolha < 1 || escolha > num_configs) {
-            printf("\n-> Escolha um ficheiro (1-%d): ", num_configs);
-            if (scanf("%d", &escolha) != 1) {
-                while (getchar() != '\n'); // Limpar buffer
-                escolha = -1;
-            }
-            
-            if (escolha < 1 || escolha > num_configs) {
-                printf("Escolha inválida! Tente novamente.\n");
-            }
-        }
+        char prompt[64];
+        snprintf(prompt, sizeof(prompt), "\n-> Escolha um ficheiro (1-%d): ", num_configs);
+        int escolha = lerInteiro(prompt, 1, num_configs);
         
         strncpy(ficheiroConfig, configs[escolha - 1], sizeof(ficheiroConfig) - 1);
         printf("\nUsando: %s\n\n", ficheiroConfig);

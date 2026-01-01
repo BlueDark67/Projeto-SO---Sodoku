@@ -134,3 +134,39 @@ void aviso(const char *fmt, ...) {
     fprintf(stderr, "\n");
     va_end(args);
 }
+
+/* Lê um inteiro de forma robusta (proteção contra buffer overflow e input inválido) */
+int lerInteiro(const char *prompt, int min, int max) {
+    char buffer[128];
+    int valor;
+    int valido = 0;
+
+    while (!valido) {
+        if (prompt) printf("%s", prompt);
+        fflush(stdout);
+
+        if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
+            return min; // EOF ou erro
+        }
+
+        // Tentar converter
+        char *endptr;
+        long num = strtol(buffer, &endptr, 10);
+
+        // Verificar se foi lido algo e se o resto da linha é espaço/newline
+        if (endptr == buffer) {
+            printf("Entrada inválida. Por favor insira um número.\n");
+            continue;
+        }
+        
+        // Verificar limites
+        if (num < min || num > max) {
+            printf("Por favor insira um valor entre %d e %d.\n", min, max);
+            continue;
+        }
+
+        valor = (int)num;
+        valido = 1;
+    }
+    return valor;
+}
