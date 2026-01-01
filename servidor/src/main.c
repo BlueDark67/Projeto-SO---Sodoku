@@ -39,6 +39,7 @@
 static Jogo *jogos_global = NULL;
 static int sockfd_global = -1;
 static DadosPartilhados *dados_global = NULL;
+static ConfigServidor config_global;
 
 /**
  * @brief Função de cleanup chamada antes de terminar o servidor
@@ -79,6 +80,14 @@ void cleanup_servidor(void) {
     // Fechar logs
     fecharLog();
     printf("[CLEANUP] ✓ Logs fechados\n");
+    
+    // Modo DEBUG: Apagar logs ao encerrar
+    if (config_global.modo == MODO_DEBUG && config_global.limparLogsEncerramento) {
+        printf("[CLEANUP] 🔧 MODO DEBUG: A apagar logs...\n");
+        system("rm -f logs/servidor/*.log");
+        system("rm -f logs/clientes/*.log");
+        printf("[CLEANUP] ✓ Logs apagados\n");
+    }
     
     printf("[CLEANUP] Servidor terminado.\n");
 }
@@ -271,6 +280,39 @@ int main(int argc, char *argv[])
         fprintf(stderr, "ERRO: MAXLINE inválido (%d). Deve ser >= 256\n", config.maxLinha);
         return 1;
     }
+    
+    // Validar configurações de modo
+    if (config.modo != MODO_PADRAO && config.modo != MODO_DEBUG) {
+        fprintf(stderr, "ERRO: MODO não configurado em %s\n", ficheiroConfig);
+        fprintf(stderr, "-> Adicione: MODO: PADRAO ou MODO: DEBUG\n");
+        return 1;
+    }
+    
+    if (config.modo == MODO_PADRAO) {
+        if (config.diasRetencaoLogs < 0) {
+            fprintf(stderr, "ERRO: DIAS_RETENCAO_LOGS não configurado ou inválido em %s\n", ficheiroConfig);
+            fprintf(stderr, "-> Adicione: DIAS_RETENCAO_LOGS: 7 (por exemplo)\n");
+            return 1;
+        }
+    }
+    
+    if (config.modo == MODO_DEBUG) {
+        if (config.limparLogsEncerramento < 0) {
+            fprintf(stderr, "ERRO: LIMPAR_LOGS_ENCERRAMENTO não configurado em %s\n", ficheiroConfig);
+            fprintf(stderr, "-> Adicione: LIMPAR_LOGS_ENCERRAMENTO: 1\n");
+            return 1;
+        }
+    }
+    
+    // Guardar config em global para cleanup
+    config_global = config;
+    
+    // Mostrar modo de operação
+    if (config.modo == MODO_DEBUG) {
+        printf("   ⚠️  MODO DEBUG ATIVO - Logs serão apagados ao encerrar\n");
+    } else {
+        printf("   ✓ MODO PADRÃO - Logs preservados por %d dias\n", config.diasRetencaoLogs);
+    }
 
     // Ajustar caminhos se necessário (tentar com e sem ../)
     // Usa o ficheiro de JOGOS como referência (sempre existe, ao contrário do log)
@@ -300,6 +342,15 @@ int main(int argc, char *argv[])
     if (inicializarLog(config.ficheiroLog) != 0)
     {
         err_dump("Servidor: Falha a iniciar logs");
+    }
+    
+    // Modo PADRAO: Limpar logs antigos
+    if (config.modo == MODO_PADRAO && config.diasRetencaoLogs > 0) {
+        printf("   🗑️  A limpar logs com mais de %d dias...\n", config.diasRetencaoLogs);
+        char cmd[512];
+        snprintf(cmd, sizeof(cmd), "find logs/ -type f -name '*.log' -mtime +%d -delete 2>/dev/null", config.diasRetencaoLogs);
+        system(cmd);
+        printf("   ✓ Limpeza concluída\n");
     }
     
     char log_init[512];

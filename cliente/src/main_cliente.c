@@ -98,33 +98,34 @@ int main(int argc, char *argv[])
     
     printf("   ✓ IP do Servidor: %s\n", config.ipServidor);
     printf("   ✓ Porta: %d\n", config.porta);
-    printf("   ✓ ID do Cliente: %d\n\n", config.idCliente);
     
-    // Inicializar logs do cliente
-    if (strlen(config.ficheiroLog) > 0) {
-        // Determinar se estamos em build/ ou raiz usando o ficheiro de config como referência
-        char log_path[256];
-        int precisaAjuste = 0;
-        
-        // Se o ficheiro de config usado tem ../ no caminho, então estamos em build/
-        if (strstr(ficheiroConfig, "../") != NULL) {
-            precisaAjuste = 1;
-        }
-        
-        if (precisaAjuste) {
-            snprintf(log_path, sizeof(log_path), "../%s", config.ficheiroLog);
-        } else {
-            strncpy(log_path, config.ficheiroLog, sizeof(log_path) - 1);
-        }
-        
-        if (inicializarLogCliente(log_path, config.idCliente) == 0) {
-            printf("   ✓ Logs ativados: %s\n\n", log_path);
-            char msg_init[256];
-            snprintf(msg_init, sizeof(msg_init), 
-                     "Cliente #%d iniciado - Config: %s", 
-                     config.idCliente, ficheiroConfig);
-            registarEventoCliente(EVTC_CLIENTE_INICIADO, msg_init);
-        }
+    // Usar PID como ID único do cliente
+    int idCliente = getpid();
+    printf("   ✓ ID do Cliente (PID): %d\n\n", idCliente);
+    
+    // Inicializar logs do cliente com ID baseado em PID
+    // Determinar se estamos em build/ ou raiz usando o ficheiro de config como referência
+    char log_path[256];
+    int precisaAjuste = 0;
+    
+    // Se o ficheiro de config usado tem ../ no caminho, então estamos em build/
+    if (strstr(ficheiroConfig, "../") != NULL) {
+        precisaAjuste = 1;
+    }
+    
+    if (precisaAjuste) {
+        snprintf(log_path, sizeof(log_path), "../logs/clientes/cliente_%d.log", idCliente);
+    } else {
+        snprintf(log_path, sizeof(log_path), "logs/clientes/cliente_%d.log", idCliente);
+    }
+    
+    if (inicializarLogCliente(log_path, idCliente) == 0) {
+        printf("   ✓ Logs ativados: %s\n\n", log_path);
+        char msg_init[256];
+        snprintf(msg_init, sizeof(msg_init), 
+                 "Cliente #%d iniciado - Config: %s", 
+                 idCliente, ficheiroConfig);
+        registarEventoCliente(EVTC_CLIENTE_INICIADO, msg_init);
     }
 
     // --- Início da Lógica de Sockets (Fase 2) ---
@@ -169,7 +170,7 @@ int main(int argc, char *argv[])
     /* Envia os pedidos e recebe as respostas */
     // str_cli é a função do util-stream-cliente.c
     // É AQUI que vais implementar a lógica do protocolo.h
-    str_cli(stdin, sockfd, config.idCliente); // Passa o ID do cliente
+    str_cli(stdin, sockfd, idCliente); // Passa o PID do cliente como ID
 
     /* Fecha o socket e termina */
     printf("\n4. A fechar ligação...\n");

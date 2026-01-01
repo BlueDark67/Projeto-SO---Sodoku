@@ -2,6 +2,11 @@
 #define CONFIG_SERVIDOR_H
 #define MAX_JOGOS 100
 
+typedef enum {
+    MODO_PADRAO,  // Produção - logs organizados por data
+    MODO_DEBUG    // Desenvolvimento - apaga logs ao encerrar
+} ModoOperacao;
+
 typedef struct {
     char ficheiroJogos[100];
     char ficheiroSolucoes[100];
@@ -11,6 +16,9 @@ typedef struct {
     int maxJogos;               // Máximo de jogos a carregar
     int delayErro;              // Delay entre mensagens de erro (segundos)
     int maxLinha;               // Tamanho máximo de buffer de comunicação
+    ModoOperacao modo;          // PADRAO ou DEBUG
+    int diasRetencaoLogs;       // Dias para manter logs (modo PADRAO)
+    int limparLogsEncerramento; // Apagar logs ao encerrar (modo DEBUG)
 } ConfigServidor;
 
 int lerConfigServidor(const char *nomeFicheiro, ConfigServidor *config);

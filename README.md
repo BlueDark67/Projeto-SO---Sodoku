@@ -51,7 +51,8 @@ make clean && make all
 ```bash
 ./build/servidor
 # ou especificar ficheiro de configuração
-./build/servidor config/servidor/server.conf
+./build/servidor config/servidor/serverPadrao.conf  # Modo produção
+./build/servidor config/servidor/serverDebug.conf   # Modo desenvolvimento
 ```
 
 ### Terminal 2 e 3: Clientes
@@ -62,13 +63,21 @@ make clean && make all
 ```
 
 O servidor e cliente procuram automaticamente os ficheiros de configuração em:
-- Executando da raiz: `config/servidor/server.conf` ou `config/cliente/cliente.conf`
-- Executando de `build/`: `../config/servidor/server.conf` ou `../config/cliente/cliente.conf`
+- Executando da raiz: `config/servidor/serverPadrao.conf` ou `config/cliente/cliente.conf`
+- Executando de `build/`: `../config/servidor/serverPadrao.conf` ou `../config/cliente/cliente.conf`
+
+**Modos de Operação do Servidor:**
+- **serverPadrao.conf**: Modo produção - logs preservados por 7 dias
+- **serverDebug.conf**: Modo desenvolvimento - logs apagados ao encerrar
 
 ## ⚙️ Configuração
 
-### Servidor (`config/servidor/server.conf`)
+### Servidor (`config/servidor/serverPadrao.conf`)
 ```ini
+# Modo de Operação
+MODO: PADRAO            # PADRAO (produção) ou DEBUG (desenvolvimento)
+DIAS_RETENCAO_LOGS: 7   # Dias para manter logs (modo PADRAO)
+
 # Configuração de Rede
 PORTA: 8080           # Porta TCP do servidor
 MAX_FILA: 5           # Máximo de clientes em fila de espera
@@ -81,6 +90,15 @@ JOGOS: servidor/data/jogos.txt  # Ficheiro com jogos Sudoku
 DELAY_ERRO: 2         # Segundos de espera após erro (anticheat)
 MAXLINE: 512          # Tamanho do buffer de comunicação
 LOG: logs/servidor/server.log   # Ficheiro de log
+```
+
+### Servidor Debug (`config/servidor/serverDebug.conf`)
+```ini
+# Modo de Operação
+MODO: DEBUG                     # Modo desenvolvimento
+LIMPAR_LOGS_ENCERRAMENTO: 1     # Apaga logs ao encerrar
+
+# (restantes configurações iguais ao modo padrão)
 ```
 
 ### Cliente (`config/cliente/cliente.conf`)

@@ -32,6 +32,7 @@
 #include <time.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/file.h>   // Para flock() (file locking)
 #include <stdlib.h>
 #include <libgen.h>
 #include "logs_cliente.h"
@@ -145,9 +146,15 @@ void registarEventoCliente(CodigoEventoCliente evento, const char *descricao) {
         default: nome_evento = "?"; break;
     }
     
+    // Lock exclusivo: previne race conditions em múltiplas instâncias
+    flock(fileno(ficheiro_log_cliente), LOCK_EX);
+    
     fprintf(ficheiro_log_cliente, "%-19s %-12s %s\n", 
             buffer_tempo, nome_evento, descricao ? descricao : "");
     fflush(ficheiro_log_cliente);
+    
+    // Unlock: liberta o ficheiro para outros processos
+    flock(fileno(ficheiro_log_cliente), LOCK_UN);
 }
 
 void fecharLogCliente() {

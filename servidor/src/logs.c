@@ -26,6 +26,7 @@
 #include <time.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/file.h>   // Para flock() (file locking)
 #include <stdlib.h>
 #include <libgen.h>
 #include "logs.h"
@@ -116,9 +117,15 @@ void registarEvento(int idUtilizador, CodigoEvento evento, const char *descricao
         snprintf(id_str, sizeof(id_str), "%d", idUtilizador);
     }
     
+    // Lock exclusivo: apenas 1 processo escreve de cada vez
+    flock(fileno(ficheiro_log), LOCK_EX);
+    
     fprintf(ficheiro_log, "%-12s %-8s %-18s %s\n", 
             id_str, buffer_tempo, obterDescricaoEvento(evento), descricao ? descricao : "");
     fflush(ficheiro_log);
+    
+    // Unlock: permite outros processos escreverem
+    flock(fileno(ficheiro_log), LOCK_UN);
 }
 
 void fecharLog() {

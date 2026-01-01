@@ -63,6 +63,9 @@ int lerConfigServidor(const char *nomeFicheiro, ConfigServidor *config) {
     config->ficheiroJogos[0] = '\0';
     config->ficheiroSolucoes[0] = '\0';
     config->ficheiroLog[0] = '\0';
+    config->modo = -1;  // Inválido - deve ser configurado explicitamente
+    config->diasRetencaoLogs = -1;  // Inválido
+    config->limparLogsEncerramento = -1;  // Inválido
 
     char linha[200];
     while (fgets(linha, sizeof(linha), f)) {
@@ -93,6 +96,17 @@ int lerConfigServidor(const char *nomeFicheiro, ConfigServidor *config) {
                 config->delayErro = atoi(valor);
             } else if (strcmp(parametro, "MAXLINE") == 0) {
                 config->maxLinha = atoi(valor);
+            } else if (strcmp(parametro, "MODO") == 0) {
+                if (strcmp(valor, "DEBUG") == 0) {
+                    config->modo = MODO_DEBUG;
+                } else if (strcmp(valor, "PADRAO") == 0) {
+                    config->modo = MODO_PADRAO;
+                }
+                // Se não for nenhum dos dois, fica -1 (inválido)
+            } else if (strcmp(parametro, "DIAS_RETENCAO_LOGS") == 0) {
+                config->diasRetencaoLogs = atoi(valor);
+            } else if (strcmp(parametro, "LIMPAR_LOGS_ENCERRAMENTO") == 0) {
+                config->limparLogsEncerramento = atoi(valor);
             }
         }
     }
