@@ -6,9 +6,10 @@
 
 // Estrutura para Memória Partilhada
 typedef struct {
-    int numClientes;
-    sem_t mutex;
-    sem_t barreira;
+    int numClientes;        // Total de clientes conectados (estatística)
+    int clientesEmEspera;   // Clientes bloqueados na barreira aguardando par
+    sem_t mutex;            // Proteção para acesso à memória partilhada
+    sem_t barreira;         // Semáforo para sincronização de pares
 } DadosPartilhados;
 
 // Protótipo da função que está em util-stream-server.c

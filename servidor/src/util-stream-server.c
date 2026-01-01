@@ -68,28 +68,81 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
      * SINCRONIZAÇÃO ENTRE CLIENTES
      * ======================================== */
     
-    // Zona crítica: incrementar contador de clientes
+    // Zona crítica: incrementar contador de clientes conectados
     sem_wait(&dados->mutex);  // Entrar na secção crítica
     dados->numClientes++;
-    int meus_clientes = dados->numClientes;
+    int total_conectados = dados->numClientes;
     sem_post(&dados->mutex);  // Sair da secção crítica
 
-    printf("[DEBUG] Cliente conectado. Total: %d\n", meus_clientes);
+    printf("[DEBUG] Cliente conectado. Total de clientes conectados: %d\n", total_conectados);
 
-    // Barreira de sincronização: aguardar mínimo de 2 clientes
-    if (meus_clientes < 2)
+    /* ========================================
+     * BARREIRA DE SINCRONIZAÇÃO ROBUSTA
+     * ========================================
+     * Lógica: Verificar se há alguém À ESPERA de par
+     * 
+     * Caso 1: Há cliente em espera → FORMAR PAR
+     *   - Decrementar clientesEmEspera
+     *   - Fazer sem_post() para libertar quem está bloqueado
+     *   - Ambos avançam para jogar
+     * 
+     * Caso 2: Ninguém em espera → FICAR À ESPERA
+     *   - Incrementar clientesEmEspera
+     *   - Fazer sem_wait() e bloquear
+     *   - Aguardar até próximo cliente fazer sem_post()
+     * 
+     * Esta lógica funciona SEMPRE, independentemente de:
+     * - Ordem de entrada/saída dos clientes
+     * - Clientes que saem durante o jogo
+     * - Múltiplas sessões consecutivas
+     */
+    
+    sem_wait(&dados->mutex);  // Proteger acesso à variável partilhada
+    
+    if (dados->clientesEmEspera > 0)
     {
-        printf("Servidor: Cliente 1 à espera do Cliente 2 (sem timeout)...\n");
-        // Primeiro cliente: bloqueia na barreira
-        // Fica em espera até outro cliente fazer sem_post na barreira
-        sem_wait(&dados->barreira);
-        printf("Servidor: Cliente 1 desbloqueado! O jogo vai começar.\n");
+        // CASO 1: Há alguém à espera - FORMAR PAR
+        dados->clientesEmEspera--;  // Consumir o cliente que estava à espera
+        int clientes_espera_restantes = dados->clientesEmEspera;
+        sem_post(&dados->mutex);  // Libertar mutex ANTES de sem_post
+        
+        printf("Servidor: Par formado! Cliente conectado encontrou par em espera.\n");
+        printf("         Total conectados: %d | Em espera: %d\n", 
+               total_conectados, clientes_espera_restantes);
+        
+        char log_par[256];
+        snprintf(log_par, sizeof(log_par), 
+                 "Par formado - Total: %d conectados, %d em espera", 
+                 total_conectados, clientes_espera_restantes);
+        registarEvento(0, EVT_SERVIDOR_INICIADO, log_par);
+        
+        // Libertar o cliente que estava bloqueado
+        sem_post(&dados->barreira);
+        
+        // Este cliente NÃO bloqueia, avança direto para o jogo
     }
     else
     {
-        printf("Servidor: Cliente 2 chegou! A desbloquear Cliente 1.\n");
-        // Cliente 2 ou posterior: liberta o primeiro cliente
-        sem_post(&dados->barreira);
+        // CASO 2: Ninguém à espera - FICAR À ESPERA
+        dados->clientesEmEspera++;
+        int clientes_em_espera = dados->clientesEmEspera;
+        sem_post(&dados->mutex);  // Libertar mutex ANTES de sem_wait
+        
+        printf("Servidor: Cliente aguardando par (sem timeout)...\n");
+        printf("         Total conectados: %d | Em espera: %d\n", 
+               total_conectados, clientes_em_espera);
+        
+        char log_espera[256];
+        snprintf(log_espera, sizeof(log_espera), 
+                 "Cliente aguardando par - Total: %d conectados, %d em espera", 
+                 total_conectados, clientes_em_espera);
+        registarEvento(0, EVT_SERVIDOR_INICIADO, log_espera);
+        
+        // Bloquear até que outro cliente faça sem_post
+        sem_wait(&dados->barreira);
+        
+        printf("Servidor: Cliente desbloqueado! Par formado, jogo iniciado.\n");
+        registarEvento(0, EVT_SERVIDOR_INICIADO, "Cliente desbloqueado - jogo iniciado");
     }
 
     /* Aplicar timeout de socket APÓS sincronização */
@@ -118,7 +171,8 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
 
         if (n == 0)
         {
-            return; // Cliente desligou-se (EOF)
+            // Cliente desligou-se (EOF)
+            goto cleanup_e_sair;
         }
         else if (n < 0)
         {
@@ -130,15 +184,15 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
                          msg_recebida.idCliente, timeoutCliente);
                 registarEvento(msg_recebida.idCliente, EVT_ERRO_GERAL, log_timeout);
                 printf("[TIMEOUT] Cliente não respondeu, a fechar ligação.\n");
-                return;
+                goto cleanup_e_sair;
             }
             err_dump("str_echo: erro a ler a mensagem");
-            return; // Erro
+            goto cleanup_e_sair;
         }
         else if (n != sizeof(MensagemSudoku))
         {
             err_dump("str_echo: erro a ler a mensagem (bytes inesperados)");
-            return; // Erro
+            goto cleanup_e_sair;
         }
 
         // Limpa a estrutura de resposta
@@ -301,4 +355,40 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
             err_dump("str_echo: erro a escrever resposta");
         }
     }
+    
+cleanup_e_sair:
+    /* ========================================
+     * CLEANUP: DECREMENTAR CONTADOR DE CLIENTES
+     * ========================================
+     * Quando o cliente desconecta (fim do loop ou erro),
+     * devemos decrementar o contador de clientes conectados.
+     * 
+     * IMPORTANTE: Não decrementamos clientesEmEspera porque:
+     * - Se o cliente estava a jogar (não em espera), clientesEmEspera
+     *   já não o contava
+     * - Se o cliente estava em espera e desconecta (timeout/erro),
+     *   ele SAI do sem_wait() com erro e não chega aqui
+     * 
+     * Esta lógica garante que:
+     * 1. Estatísticas de "clientes ligados" são corretas
+     * 2. clientesEmEspera reflete sempre a realidade
+     * 3. Não há sinais acumulados na barreira
+     */
+    
+    // Zona crítica: decrementar contador de clientes conectados
+    sem_wait(&dados->mutex);
+    dados->numClientes--;
+    int clientes_restantes = dados->numClientes;
+    int em_espera = dados->clientesEmEspera;
+    sem_post(&dados->mutex);
+    
+    printf("[DEBUG] Cliente desconectado.\n");
+    printf("        Clientes conectados: %d | Em espera: %d\n", 
+           clientes_restantes, em_espera);
+    
+    char log_desconexao[256];
+    snprintf(log_desconexao, sizeof(log_desconexao), 
+             "Cliente desconectado - Conectados: %d, Em espera: %d", 
+             clientes_restantes, em_espera);
+    registarEvento(0, EVT_CLIENTE_DESCONECTADO, log_desconexao);
 }

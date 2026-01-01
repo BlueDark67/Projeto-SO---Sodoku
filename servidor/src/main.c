@@ -40,6 +40,7 @@ static Jogo *jogos_global = NULL;
 static int sockfd_global = -1;
 static DadosPartilhados *dados_global = NULL;
 static ConfigServidor config_global;
+static int sou_processo_pai = 1;  // Flag para distinguir pai de filho
 
 /**
  * @brief Função de cleanup chamada antes de terminar o servidor
@@ -81,8 +82,8 @@ void cleanup_servidor(void) {
     fecharLog();
     printf("[CLEANUP] ✓ Logs fechados\n");
     
-    // Modo DEBUG: Apagar logs ao encerrar
-    if (config_global.modo == MODO_DEBUG && config_global.limparLogsEncerramento) {
+    // Modo DEBUG: Apagar logs ao encerrar (APENAS NO PROCESSO PAI)
+    if (sou_processo_pai && config_global.modo == MODO_DEBUG && config_global.limparLogsEncerramento) {
         printf("[CLEANUP] 🔧 MODO DEBUG: A apagar logs...\n");
         system("rm -f logs/servidor/*.log");
         system("rm -f logs/clientes/*.log");
@@ -417,6 +418,7 @@ int main(int argc, char *argv[])
     
     dados_global = dados;  // Guardar em global para cleanup
     dados->numClientes = 0;
+    dados->clientesEmEspera = 0;  // Inicialmente, nenhum cliente em espera
 
     // Inicializa semáforos
     // O '1' no meio significa "partilhado entre processos"
@@ -478,6 +480,7 @@ int main(int argc, char *argv[])
         else if (childpid == 0)
         {
             /* PROCESSO FILHO */
+            sou_processo_pai = 0;  // Marcar como processo filho
             close(sockfd); // Filho não precisa do socket "pai"
 
             // str_echo é a função do util-stream-server.c
