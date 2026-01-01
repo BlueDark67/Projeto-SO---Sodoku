@@ -135,13 +135,17 @@ void registarEventoCliente(CodigoEventoCliente evento, const char *descricao) {
     switch(evento) {
         case EVTC_CLIENTE_INICIADO: nome_evento = "INÍCIO"; break;
         case EVTC_CONEXAO_ESTABELECIDA: nome_evento = "CONEXÃO"; break;
-        case EVTC_JOGO_RECEBIDO: nome_evento = "JOGO RX"; break;
-        case EVTC_SOLUCAO_ENVIADA: nome_evento = "SOL TX"; break;
-        case EVTC_RESULTADO_RECEBIDO: nome_evento = "RESULT"; break;
+        case EVTC_JOGO_RECEBIDO: nome_evento = "RECEBEU JOGO"; break;
+        case EVTC_SOLUCAO_ENVIADA: nome_evento = "ENVIOU SOLUÇÃO"; break;
+        case EVTC_RESULTADO_RECEBIDO: nome_evento = "RESULTADO"; break;
         case EVTC_SOLUCAO_CORRETA: nome_evento = "✓ CERTO"; break;
         case EVTC_SOLUCAO_INCORRETA: nome_evento = "✗ ERRADO"; break;
-        case EVTC_NOVO_JOGO_PEDIDO: nome_evento = "PEDIDO"; break;
+        case EVTC_NOVO_JOGO_PEDIDO: nome_evento = "PEDIDO JOGO"; break;
         case EVTC_CONEXAO_FECHADA: nome_evento = "FECHADO"; break;
+        case EVTC_AGUARDANDO_JOGADOR: nome_evento = "AGUARDANDO"; break;
+        case EVTC_SESSAO_INICIADA: nome_evento = "SESSÃO INICIADA"; break;
+        case EVTC_SESSAO_TERMINADA: nome_evento = "SESSÃO TERMINADA"; break;
+        case EVTC_JOGO_NUMERO: nome_evento = "JOGO #"; break;
         case EVTC_ERRO: nome_evento = "ERRO"; break;
         default: nome_evento = "?"; break;
     }

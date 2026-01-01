@@ -84,7 +84,7 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
     snprintf(log_msg, sizeof(log_msg), 
              "Cliente conectado - Total: %d conectados", 
              total_conectados);
-    registarEvento(0, EVT_SERVIDOR_INICIADO, log_msg);
+    registarEvento(0, EVT_CLIENTE_CONECTADO, log_msg);
 
     /* Aplicar timeout de socket */
     struct timeval timeout;
@@ -101,7 +101,7 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
     snprintf(log_msg, sizeof(log_msg), 
              "Timeout de socket ativado: %d segundos (%d minutos)", 
              timeoutCliente, timeoutCliente / 60);
-    registarEvento(0, EVT_SERVIDOR_INICIADO, log_msg);
+    registarEvento(0, EVT_TIMEOUT_CONFIGURADO, log_msg);
     printf("[DEBUG] Timeout ativado: %d segundos\n", timeoutCliente);
 
     // Lógica principal do servidor
@@ -164,7 +164,7 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
                 snprintf(log_msg, sizeof(log_msg), 
                          "Par formado para novo jogo - Cliente #%d pode avançar", 
                          msg_recebida.idCliente);
-                registarEvento(msg_recebida.idCliente, EVT_SERVIDOR_INICIADO, log_msg);
+                registarEvento(msg_recebida.idCliente, EVT_PAR_FORMADO, log_msg);
                 
                 // Desbloquear o outro cliente
                 sem_post(&dados->barreira);
@@ -179,7 +179,7 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
                 snprintf(log_msg, sizeof(log_msg), 
                          "Cliente #%d aguardando par para novo jogo (%d em espera)", 
                          msg_recebida.idCliente, espera);
-                registarEvento(msg_recebida.idCliente, EVT_SERVIDOR_INICIADO, log_msg);
+                registarEvento(msg_recebida.idCliente, EVT_AGUARDANDO_PAR, log_msg);
                 
                 // Bloquear até outro cliente pedir jogo
                 sem_wait(&dados->barreira);
@@ -189,7 +189,7 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
                 snprintf(log_msg, sizeof(log_msg), 
                          "Cliente #%d desbloqueado - novo jogo iniciado", 
                          msg_recebida.idCliente);
-                registarEvento(msg_recebida.idCliente, EVT_SERVIDOR_INICIADO, log_msg);
+                registarEvento(msg_recebida.idCliente, EVT_CLIENTE_DESBLOQUEADO, log_msg);
             }
             
             // Agora sim, enviar o jogo (ambos sincronizados)

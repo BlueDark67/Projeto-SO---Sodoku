@@ -130,7 +130,7 @@ void registarEvento(int idUtilizador, CodigoEvento evento, const char *descricao
 
 void fecharLog() {
     if (ficheiro_log) {
-        registarEvento(0, EVT_SERVIDOR_INICIADO, "Servidor encerrado");
+        registarEvento(0, EVT_SERVIDOR_ENCERRADO, "Servidor encerrado graciosamente");
         fclose(ficheiro_log);
         ficheiro_log = NULL;
     }
@@ -148,6 +148,11 @@ const char* obterDescricaoEvento(CodigoEvento evento) {
         case EVT_SOLUCAO_VERIFICADA: return "Solucao Verificada";
         case EVT_SOLUCAO_CORRETA: return "Solucao Correta";
         case EVT_SOLUCAO_ERRADA: return "Solucao Errada";
+        case EVT_AGUARDANDO_PAR: return "Aguardando Par";
+        case EVT_PAR_FORMADO: return "Par Formado";
+        case EVT_CLIENTE_DESBLOQUEADO: return "Cliente Desbloqueado";
+        case EVT_TIMEOUT_CONFIGURADO: return "Timeout Configurado";
+        case EVT_SERVIDOR_ENCERRADO: return "Servidor Encerrado";
         case EVT_ERRO_GERAL: return "Erro Geral";
         default: return "Evento Desconhecido";
     }
