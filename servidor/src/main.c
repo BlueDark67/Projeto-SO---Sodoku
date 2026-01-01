@@ -22,6 +22,7 @@
 #include <arpa/inet.h>  // Funções para conversão de endereços IP
 #include <sys/mman.h>   // Memória partilhada (mmap)
 #include <dirent.h>     // Manipulação de diretórios
+#include <signal.h>     // Signal handling (SIGINT, SIGCHLD)
 
 // Headers do projeto
 #include "config_servidor.h" // Estruturas e funções de configuração
@@ -33,6 +34,67 @@
 
 #define CONFIG_DIR "config/servidor"
 #define MAX_CONFIGS 50
+
+// Variáveis globais para cleanup
+static Jogo *jogos_global = NULL;
+static int sockfd_global = -1;
+static DadosPartilhados *dados_global = NULL;
+
+/**
+ * @brief Função de cleanup chamada antes de terminar o servidor
+ * 
+ * Liberta todos os recursos alocados:
+ * - Memória do array de jogos
+ * - Socket do servidor
+ * - Semáforos da memória partilhada
+ * - Memória partilhada
+ * - Ficheiro de log
+ */
+void cleanup_servidor(void) {
+    printf("\n[CLEANUP] A terminar servidor graciosamente...\n");
+    
+    // Libertar array de jogos
+    if (jogos_global != NULL) {
+        free(jogos_global);
+        jogos_global = NULL;
+        printf("[CLEANUP] ✓ Memória de jogos libertada\n");
+    }
+    
+    // Fechar socket
+    if (sockfd_global >= 0) {
+        close(sockfd_global);
+        sockfd_global = -1;
+        printf("[CLEANUP] ✓ Socket fechado\n");
+    }
+    
+    // Destruir semáforos e libertar memória partilhada
+    if (dados_global != NULL) {
+        sem_destroy(&dados_global->mutex);
+        sem_destroy(&dados_global->barreira);
+        munmap(dados_global, sizeof(DadosPartilhados));
+        dados_global = NULL;
+        printf("[CLEANUP] ✓ Semáforos destruídos e memória partilhada libertada\n");
+    }
+    
+    // Fechar logs
+    fecharLog();
+    printf("[CLEANUP] ✓ Logs fechados\n");
+    
+    printf("[CLEANUP] Servidor terminado.\n");
+}
+
+/**
+ * @brief Handler para SIGINT (Ctrl+C)
+ * 
+ * Permite terminar o servidor graciosamente quando o utilizador
+ * pressiona Ctrl+C
+ */
+void sigint_handler(int sig) {
+    (void)sig; // Evitar warning de parâmetro não usado
+    printf("\n[SINAL] Recebido SIGINT (Ctrl+C)\n");
+    cleanup_servidor();
+    exit(0);
+}
 
 /**
  * @brief Procura ficheiros .conf num diretório específico
@@ -246,8 +308,21 @@ int main(int argc, char *argv[])
              config.porta, config.maxFila, config.maxJogos);
     registarEvento(0, EVT_SERVIDOR_INICIADO, log_init);
 
+    // Registar handler para SIGINT (Ctrl+C) para cleanup gracioso
+    signal(SIGINT, sigint_handler);
+    
+    // Evitar processos zombies - auto-reaping de processos filho
+    signal(SIGCHLD, SIG_IGN);
+    
+    // Ignorar SIGPIPE (evita crash se cliente desconectar durante write)
+    signal(SIGPIPE, SIG_IGN);
+    
+    // Registar função de cleanup para ser chamada ao sair
+    atexit(cleanup_servidor);
+    
     printf("3. A alocar memória para %d jogos...\n", config.maxJogos);
     jogos = malloc(sizeof(Jogo) * config.maxJogos);
+    jogos_global = jogos;  // Guardar em global para cleanup
     if (!jogos) {
         registarEvento(0, EVT_ERRO_GERAL, "Falha ao alocar memória para jogos");
         err_dump("Servidor: Falha ao alocar memória para jogos");
@@ -279,9 +354,12 @@ int main(int argc, char *argv[])
 
     if (dados == MAP_FAILED)
     {
+        free(jogos);
+        jogos_global = NULL;
         err_dump("Erro ao criar memória partilhada");
     }
-
+    
+    dados_global = dados;  // Guardar em global para cleanup
     dados->numClientes = 0;
 
     // Inicializa semáforos
@@ -293,6 +371,8 @@ int main(int argc, char *argv[])
     printf("6. A criar socket TCP (AF_INET)...\n");
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
+        free(jogos);
+        jogos_global = NULL;
         err_dump("Servidor: não foi possível abrir o socket stream");
     }
 
@@ -304,6 +384,8 @@ int main(int argc, char *argv[])
 
     /* Associa o socket à morada e porta */
     printf("7. A fazer bind à porta %d...\n", config.porta);
+    sockfd_global = sockfd;  // Guardar em global para cleanup
+    
     if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
         err_dump("Servidor: não foi possível fazer bind");
@@ -357,7 +439,5 @@ int main(int argc, char *argv[])
         close(newsockfd); // Pai não precisa do socket do cliente
     }
     
-    // Cleanup (nunca deve chegar aqui mas está correto)
-    free(jogos);
-    munmap(dados, sizeof(DadosPartilhados));
+    // O cleanup é feito automaticamente por atexit() ou pelo signal handler
 }
