@@ -1,72 +1,19 @@
-# ============================================
-# .gitignore - Projeto Sudoku Cliente/Servidor
-# ============================================
-
-# Executáveis
-build/
-*.exe
-servidorSudoku
-clienteSudoku
-
-# Ficheiros objeto
+# Ficheiros compilados
 *.o
-*.a
-*.so
-*.dylib
+*.out
+build/cliente
+build/servidor
 
-# Logs (todos são temporários)
-logs/**/*.log
-logs/**/*.log_
-*.log
-*.log_
-
-# Ficheiros temporários
-*.tmp
+# Ficheiros de sistema
+.DS_Store
 *.swp
 *.swo
 *~
-.*.swp
 
-# IDE - Visual Studio Code
+# Logs
+logs/clientes/*.log
+logs/servidor/*.log
+
+# Editor
 .vscode/
 *.code-workspace
-
-# IDE - CLion / IntelliJ
-.idea/
-cmake-build-*/
-
-# IDE - Eclipse
-.cproject
-.project
-.settings/
-
-# Sistema Operativo
-.DS_Store
-Thumbs.db
-Desktop.ini
-
-# Debugging
-*.dSYM/
-vgcore.*
-core
-core.*
-
-# Backups
-*.bak
-*.backup
-*_backup
-
-# Compiled documentation
-*.pdf
-!docs/*.pdf
-
-# Ignorar tudo no diretório home exceto ProjetoSOReorganizado
-.bash_history
-.cache/
-.dotnet/
-.gitconfig
-.vscode-server/
-.wget-hsts
-ProjetoSO/
-aula6/
-aula7/
