@@ -65,87 +65,28 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
      */
 
     /* ========================================
-     * SINCRONIZAÇÃO ENTRE CLIENTES
-     * ======================================== */
-    
-    // Zona crítica: incrementar contador de clientes conectados
-    sem_wait(&dados->mutex);  // Entrar na secção crítica
-    dados->numClientes++;
-    int total_conectados = dados->numClientes;
-    sem_post(&dados->mutex);  // Sair da secção crítica
-
-    printf("[DEBUG] Cliente conectado. Total de clientes conectados: %d\n", total_conectados);
-
-    /* ========================================
-     * BARREIRA DE SINCRONIZAÇÃO ROBUSTA
+     * INCREMENTAR CONTADOR DE CLIENTES
      * ========================================
-     * Lógica: Verificar se há alguém À ESPERA de par
-     * 
-     * Caso 1: Há cliente em espera → FORMAR PAR
-     *   - Decrementar clientesEmEspera
-     *   - Fazer sem_post() para libertar quem está bloqueado
-     *   - Ambos avançam para jogar
-     * 
-     * Caso 2: Ninguém em espera → FICAR À ESPERA
-     *   - Incrementar clientesEmEspera
-     *   - Fazer sem_wait() e bloquear
-     *   - Aguardar até próximo cliente fazer sem_post()
-     * 
-     * Esta lógica funciona SEMPRE, independentemente de:
-     * - Ordem de entrada/saída dos clientes
-     * - Clientes que saem durante o jogo
-     * - Múltiplas sessões consecutivas
+     * Nota: A sincronização acontece no PEDIR_JOGO,
+     * não na conexão inicial. Isto permite que clientes
+     * que querem jogar novamente se sincronizem com
+     * novos clientes que conectam.
      */
     
-    sem_wait(&dados->mutex);  // Proteger acesso à variável partilhada
+    sem_wait(&dados->mutex);
+    dados->numClientes++;
+    int total_conectados = dados->numClientes;
+    sem_post(&dados->mutex);
     
-    if (dados->clientesEmEspera > 0)
-    {
-        // CASO 1: Há alguém à espera - FORMAR PAR
-        dados->clientesEmEspera--;  // Consumir o cliente que estava à espera
-        int clientes_espera_restantes = dados->clientesEmEspera;
-        sem_post(&dados->mutex);  // Libertar mutex ANTES de sem_post
-        
-        printf("Servidor: Par formado! Cliente conectado encontrou par em espera.\n");
-        printf("         Total conectados: %d | Em espera: %d\n", 
-               total_conectados, clientes_espera_restantes);
-        
-        char log_par[256];
-        snprintf(log_par, sizeof(log_par), 
-                 "Par formado - Total: %d conectados, %d em espera", 
-                 total_conectados, clientes_espera_restantes);
-        registarEvento(0, EVT_SERVIDOR_INICIADO, log_par);
-        
-        // Libertar o cliente que estava bloqueado
-        sem_post(&dados->barreira);
-        
-        // Este cliente NÃO bloqueia, avança direto para o jogo
-    }
-    else
-    {
-        // CASO 2: Ninguém à espera - FICAR À ESPERA
-        dados->clientesEmEspera++;
-        int clientes_em_espera = dados->clientesEmEspera;
-        sem_post(&dados->mutex);  // Libertar mutex ANTES de sem_wait
-        
-        printf("Servidor: Cliente aguardando par (sem timeout)...\n");
-        printf("         Total conectados: %d | Em espera: %d\n", 
-               total_conectados, clientes_em_espera);
-        
-        char log_espera[256];
-        snprintf(log_espera, sizeof(log_espera), 
-                 "Cliente aguardando par - Total: %d conectados, %d em espera", 
-                 total_conectados, clientes_em_espera);
-        registarEvento(0, EVT_SERVIDOR_INICIADO, log_espera);
-        
-        // Bloquear até que outro cliente faça sem_post
-        sem_wait(&dados->barreira);
-        
-        printf("Servidor: Cliente desbloqueado! Par formado, jogo iniciado.\n");
-        registarEvento(0, EVT_SERVIDOR_INICIADO, "Cliente desbloqueado - jogo iniciado");
-    }
+    printf("Servidor: Cliente conectado. Total: %d conectados\n", total_conectados);
+    
+    char log_msg[256];
+    snprintf(log_msg, sizeof(log_msg), 
+             "Cliente conectado - Total: %d conectados", 
+             total_conectados);
+    registarEvento(0, EVT_SERVIDOR_INICIADO, log_msg);
 
-    /* Aplicar timeout de socket APÓS sincronização */
+    /* Aplicar timeout de socket */
     struct timeval timeout;
     timeout.tv_sec = timeoutCliente;
     timeout.tv_usec = 0;
@@ -157,9 +98,10 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
         registarEvento(0, EVT_ERRO_GERAL, "Falha ao configurar SO_SNDTIMEO no socket do cliente");
     }
     
-    char log_timeout[256];
-    snprintf(log_timeout, sizeof(log_timeout), "Timeout de socket ativado: %d segundos (%d minutos)", timeoutCliente, timeoutCliente / 60);
-    registarEvento(0, EVT_SERVIDOR_INICIADO, log_timeout);
+    snprintf(log_msg, sizeof(log_msg), 
+             "Timeout de socket ativado: %d segundos (%d minutos)", 
+             timeoutCliente, timeoutCliente / 60);
+    registarEvento(0, EVT_SERVIDOR_INICIADO, log_msg);
     printf("[DEBUG] Timeout ativado: %d segundos\n", timeoutCliente);
 
     // Lógica principal do servidor
@@ -203,12 +145,54 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
         switch (msg_recebida.tipo)
         {
         case PEDIR_JOGO:
-            // Lógica de Pedido de Jogo
+            // ========================================
+            // RE-SINCRONIZAÇÃO: Garantir que há 2 jogadores
+            // ========================================
             printf("Servidor: Cliente %d pediu um jogo.\n", msg_recebida.idCliente);
             
             char log_msg[256];
-            // LÓGICA SIMPLES: Envia sempre o primeiro jogo (jogo[0])
-            // (Podes tornar isto mais complexo depois, ex: aleatório)
+            
+            // Verificar se há alguém já à espera de novo jogo
+            sem_wait(&dados->mutex);
+            
+            if (dados->clientesEmEspera > 0) {
+                // CASO 1: Há alguém à espera - formar par
+                dados->clientesEmEspera--;
+                sem_post(&dados->mutex);
+                
+                printf("Servidor: Par formado para novo jogo! Ambos avançam.\n");
+                snprintf(log_msg, sizeof(log_msg), 
+                         "Par formado para novo jogo - Cliente #%d pode avançar", 
+                         msg_recebida.idCliente);
+                registarEvento(msg_recebida.idCliente, EVT_SERVIDOR_INICIADO, log_msg);
+                
+                // Desbloquear o outro cliente
+                sem_post(&dados->barreira);
+            } else {
+                // CASO 2: Ninguém à espera - esperar por outro jogador
+                dados->clientesEmEspera++;
+                int espera = dados->clientesEmEspera;
+                sem_post(&dados->mutex);
+                
+                printf("Servidor: Cliente %d aguardando outro jogador para novo jogo...\n", 
+                       msg_recebida.idCliente);
+                snprintf(log_msg, sizeof(log_msg), 
+                         "Cliente #%d aguardando par para novo jogo (%d em espera)", 
+                         msg_recebida.idCliente, espera);
+                registarEvento(msg_recebida.idCliente, EVT_SERVIDOR_INICIADO, log_msg);
+                
+                // Bloquear até outro cliente pedir jogo
+                sem_wait(&dados->barreira);
+                
+                printf("Servidor: Cliente %d desbloqueado! Novo jogo iniciado.\n", 
+                       msg_recebida.idCliente);
+                snprintf(log_msg, sizeof(log_msg), 
+                         "Cliente #%d desbloqueado - novo jogo iniciado", 
+                         msg_recebida.idCliente);
+                registarEvento(msg_recebida.idCliente, EVT_SERVIDOR_INICIADO, log_msg);
+            }
+            
+            // Agora sim, enviar o jogo (ambos sincronizados)
             if (numJogos > 0)
             {
                 // Contar células preenchidas no jogo
