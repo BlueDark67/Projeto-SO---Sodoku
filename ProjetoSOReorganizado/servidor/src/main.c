@@ -77,6 +77,15 @@ int main(int argc, char *argv[])
     if (argc >= 2) {
         // User passou ficheiro de configuração
         strncpy(ficheiroConfig, argv[1], sizeof(ficheiroConfig) - 1);
+        ficheiroConfig[sizeof(ficheiroConfig) - 1] = '\0';
+        
+        // Verificar se o ficheiro existe
+        if (access(ficheiroConfig, F_OK) != 0) {
+            fprintf(stderr, "ERRO: Ficheiro '%s' não encontrado!\n", ficheiroConfig);
+            fprintf(stderr, "-> Verifique se o caminho está correto.\n");
+            fprintf(stderr, "-> Exemplo: %s config/servidor/server.conf\n", argv[0]);
+            return 1;
+        }
     } else {
         // Não passou argumento - mostrar 3 mensagens de erro
         printf("ERRO: Nenhum ficheiro de configuração especificado!\n");
@@ -128,6 +137,42 @@ int main(int argc, char *argv[])
     if (lerConfigServidor(ficheiroConfig, &config) != 0)
     {
         fprintf(stderr, "Servidor: Falha a ler %s\n", ficheiroConfig);
+        return 1;
+    }
+
+    // Validar configurações obrigatórias
+    if (strlen(config.ficheiroJogos) == 0) {
+        fprintf(stderr, "ERRO: Configuração 'JOGOS' não encontrada em %s\n", ficheiroConfig);
+        return 1;
+    }
+    if (strlen(config.ficheiroSolucoes) == 0) {
+        fprintf(stderr, "ERRO: Configuração 'SOLUCOES' não encontrada em %s\n", ficheiroConfig);
+        return 1;
+    }
+    if (strlen(config.ficheiroLog) == 0) {
+        fprintf(stderr, "ERRO: Configuração 'LOG' não encontrada em %s\n", ficheiroConfig);
+        return 1;
+    }
+    
+    // Validar configurações numéricas
+    if (config.porta <= 0 || config.porta > 65535) {
+        fprintf(stderr, "ERRO: PORTA inválida (%d). Deve estar entre 1 e 65535\n", config.porta);
+        return 1;
+    }
+    if (config.maxFila <= 0) {
+        fprintf(stderr, "ERRO: MAX_FILA inválida (%d). Deve ser maior que 0\n", config.maxFila);
+        return 1;
+    }
+    if (config.maxJogos <= 0) {
+        fprintf(stderr, "ERRO: MAX_JOGOS inválido (%d). Deve ser maior que 0\n", config.maxJogos);
+        return 1;
+    }
+    if (config.delayErro < 0) {
+        fprintf(stderr, "ERRO: DELAY_ERRO inválido (%d). Deve ser >= 0\n", config.delayErro);
+        return 1;
+    }
+    if (config.maxLinha < 256) {
+        fprintf(stderr, "ERRO: MAXLINE inválido (%d). Deve ser >= 256\n", config.maxLinha);
         return 1;
     }
 

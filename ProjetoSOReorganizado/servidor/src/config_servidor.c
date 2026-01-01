@@ -20,12 +20,15 @@ int lerConfigServidor(const char *nomeFicheiro, ConfigServidor *config) {
         return -1;
     }
 
-    // Inicializar com valores default
-    config->porta = 8080;
-    config->maxFila = 5;
-    config->maxJogos = 100;
-    config->delayErro = 2;
-    config->maxLinha = 512;
+    // Inicializar com valores inválidos para forçar configuração explícita
+    config->porta = -1;
+    config->maxFila = -1;
+    config->maxJogos = -1;
+    config->delayErro = -1;
+    config->maxLinha = -1;
+    config->ficheiroJogos[0] = '\0';
+    config->ficheiroSolucoes[0] = '\0';
+    config->ficheiroLog[0] = '\0';
 
     char linha[200];
     while (fgets(linha, sizeof(linha), f)) {
