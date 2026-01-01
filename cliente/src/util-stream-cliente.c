@@ -144,7 +144,8 @@ void str_cli(FILE *fp, int sockfd, int idCliente)
 
     // ----- PASSO 3: Resolver o jogo (SIMULAÇÃO com UI) -----
     char minha_solucao[82];
-    strcpy(minha_solucao, msg_jogo_original.tabuleiro);
+    strncpy(minha_solucao, msg_jogo_original.tabuleiro, sizeof(minha_solucao) - 1);
+    minha_solucao[sizeof(minha_solucao) - 1] = '\0';
 
     for (int i = 0; i < 5; i++)
     {
@@ -188,7 +189,8 @@ void str_cli(FILE *fp, int sockfd, int idCliente)
     msg_enviar.tipo = ENVIAR_SOLUCAO;
     msg_enviar.idCliente = idCliente;
     msg_enviar.idJogo = msg_jogo_original.idJogo; // Usa o idJogo da cópia
-    strcpy(msg_enviar.tabuleiro, minha_solucao);
+    strncpy(msg_enviar.tabuleiro, minha_solucao, sizeof(msg_enviar.tabuleiro) - 1);
+    msg_enviar.tabuleiro[sizeof(msg_enviar.tabuleiro) - 1] = '\0';
 
     if (writen(sockfd, (char *)&msg_enviar, sizeof(MensagemSudoku)) != sizeof(MensagemSudoku))
         err_dump("str_cli: erro ao enviar solução");

@@ -81,11 +81,32 @@ int lerConfigServidor(const char *nomeFicheiro, ConfigServidor *config) {
             
             // Mapear cada parâmetro para o campo correspondente
             if (strcmp(parametro, "JOGOS") == 0) {
-                strcpy(config->ficheiroJogos, valor);
+                if (strlen(valor) >= sizeof(config->ficheiroJogos)) {
+                    fprintf(stderr, "ERRO: Valor de JOGOS muito longo (máx %zu chars)\n", 
+                            sizeof(config->ficheiroJogos) - 1);
+                    fclose(f);
+                    return -1;
+                }
+                strncpy(config->ficheiroJogos, valor, sizeof(config->ficheiroJogos) - 1);
+                config->ficheiroJogos[sizeof(config->ficheiroJogos) - 1] = '\0';
             } else if (strcmp(parametro, "SOLUCOES") == 0) {
-                strcpy(config->ficheiroSolucoes, valor);
+                if (strlen(valor) >= sizeof(config->ficheiroSolucoes)) {
+                    fprintf(stderr, "ERRO: Valor de SOLUCOES muito longo (máx %zu chars)\n", 
+                            sizeof(config->ficheiroSolucoes) - 1);
+                    fclose(f);
+                    return -1;
+                }
+                strncpy(config->ficheiroSolucoes, valor, sizeof(config->ficheiroSolucoes) - 1);
+                config->ficheiroSolucoes[sizeof(config->ficheiroSolucoes) - 1] = '\0';
             } else if (strcmp(parametro, "LOG") == 0) {
-                strcpy(config->ficheiroLog, valor);
+                if (strlen(valor) >= sizeof(config->ficheiroLog)) {
+                    fprintf(stderr, "ERRO: Valor de LOG muito longo (máx %zu chars)\n", 
+                            sizeof(config->ficheiroLog) - 1);
+                    fclose(f);
+                    return -1;
+                }
+                strncpy(config->ficheiroLog, valor, sizeof(config->ficheiroLog) - 1);
+                config->ficheiroLog[sizeof(config->ficheiroLog) - 1] = '\0';
             } else if (strcmp(parametro, "PORTA") == 0) {
                 config->porta = atoi(valor);
             } else if (strcmp(parametro, "MAX_FILA") == 0) {

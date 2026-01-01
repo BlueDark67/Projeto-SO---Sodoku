@@ -129,7 +129,8 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
                 
                 msg_resposta.tipo = ENVIAR_JOGO;
                 msg_resposta.idJogo = jogos[0].idjogo;
-                strcpy(msg_resposta.tabuleiro, jogos[0].tabuleiro);
+                strncpy(msg_resposta.tabuleiro, jogos[0].tabuleiro, sizeof(msg_resposta.tabuleiro) - 1);
+                msg_resposta.tabuleiro[sizeof(msg_resposta.tabuleiro) - 1] = '\0';
                 
                 snprintf(log_msg, sizeof(log_msg), 
                          "Jogo #%d enviado para Cliente #%d", 
@@ -150,6 +151,43 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
             // Lógica de Verificação de Solução
             printf("Servidor: Cliente %d enviou solução para jogo %d.\n",
                    msg_recebida.idCliente, msg_recebida.idJogo);
+            
+            // VALIDAÇÃO: Verificar tamanho do tabuleiro
+            size_t tam_tabuleiro = strnlen(msg_recebida.tabuleiro, sizeof(msg_recebida.tabuleiro));
+            if (tam_tabuleiro != 81) {
+                snprintf(log_msg, sizeof(log_msg), 
+                         "ERRO: Cliente #%d enviou tabuleiro com tamanho inválido (%zu chars, esperado 81)",
+                         msg_recebida.idCliente, tam_tabuleiro);
+                registarEvento(msg_recebida.idCliente, EVT_ERRO_GERAL, log_msg);
+                
+                msg_resposta.tipo = RESPOSTA_SOLUCAO;
+                msg_resposta.idJogo = msg_recebida.idJogo;
+                strncpy(msg_resposta.resposta, "Erro: Tabuleiro inválido", sizeof(msg_resposta.resposta) - 1);
+                msg_resposta.resposta[sizeof(msg_resposta.resposta) - 1] = '\0';
+                break;
+            }
+            
+            // VALIDAÇÃO: Verificar caracteres válidos (apenas 0-9)
+            int caractere_invalido = 0;
+            for (int i = 0; i < 81; i++) {
+                if (msg_recebida.tabuleiro[i] < '0' || msg_recebida.tabuleiro[i] > '9') {
+                    caractere_invalido = 1;
+                    break;
+                }
+            }
+            
+            if (caractere_invalido) {
+                snprintf(log_msg, sizeof(log_msg), 
+                         "ERRO: Cliente #%d enviou tabuleiro com caracteres inválidos",
+                         msg_recebida.idCliente);
+                registarEvento(msg_recebida.idCliente, EVT_ERRO_GERAL, log_msg);
+                
+                msg_resposta.tipo = RESPOSTA_SOLUCAO;
+                msg_resposta.idJogo = msg_recebida.idJogo;
+                strncpy(msg_resposta.resposta, "Erro: Caracteres inválidos", sizeof(msg_resposta.resposta) - 1);
+                msg_resposta.resposta[sizeof(msg_resposta.resposta) - 1] = '\0';
+                break;
+            }
             
             // Contar células preenchidas na solução
             int celulas_solucao = 0;

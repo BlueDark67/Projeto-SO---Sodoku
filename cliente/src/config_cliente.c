@@ -118,13 +118,27 @@ int lerConfigCliente(const char *nomeFicheiro, ConfigCliente *config) {
 
         // Atribui os valores à estrutura
         if (strcmp(chave, "IP_SERVIDOR") == 0) {
+            if (strlen(valor_limpo) >= sizeof(config->ipServidor)) {
+                fprintf(stderr, "ERRO: Valor de IP_SERVIDOR muito longo (máx %zu chars)\n", 
+                        sizeof(config->ipServidor) - 1);
+                fclose(f);
+                return -1;
+            }
             strncpy(config->ipServidor, valor_limpo, sizeof(config->ipServidor) - 1);
+            config->ipServidor[sizeof(config->ipServidor) - 1] = '\0';
         } else if (strcmp(chave, "ID_CLIENTE") == 0) {
             config->idCliente = atoi(valor);
         } else if (strcmp(chave, "PORTA") == 0) {
             config->porta = atoi(valor);
         } else if (strcmp(chave, "LOG") == 0) {
+            if (strlen(valor_limpo) >= sizeof(config->ficheiroLog)) {
+                fprintf(stderr, "ERRO: Valor de LOG muito longo (máx %zu chars)\n", 
+                        sizeof(config->ficheiroLog) - 1);
+                fclose(f);
+                return -1;
+            }
             strncpy(config->ficheiroLog, valor_limpo, sizeof(config->ficheiroLog) - 1);
+            config->ficheiroLog[sizeof(config->ficheiroLog) - 1] = '\0';
         }
     }
 

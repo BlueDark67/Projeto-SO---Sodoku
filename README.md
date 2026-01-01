@@ -127,7 +127,7 @@ IdUtilizador Hora     Acontecimento      Descrição
 1            04:24:17 Solucao Errada     ✗ SOLUÇÃO INCORRETA - Cliente #1, Jogo #1: 43 erros, 38 acertos de 81 células
 ```
 
-### Cliente (`logs/clientes/cliente_1.log`)
+### Cliente (`logs/clientes/cliente_PID.log`)
 ```
 Data/Hora           Evento       Descrição
 ------------------- ------------ ------------------------------------
