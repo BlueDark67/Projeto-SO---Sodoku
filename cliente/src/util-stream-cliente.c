@@ -28,6 +28,7 @@
 // Headers do projeto
 #include "protocolo.h"      // Tipos de mensagens
 #include "logs_cliente.h"   // Sistema de logging
+#include "solver.h"         // Algoritmo de resolução (Backtracking)
 
 /**
  * @brief Imprime um tabuleiro de forma visual no terminal do cliente.
@@ -63,21 +64,31 @@ void imprimirTabuleiroCliente(const char *tabuleiro)
  * @param msg Mensagem contendo o jogo a apresentar
  * @param horaInicio Timestamp do início da resolução (para calcular tempo)
  */
-void atualizarUICliente(MensagemSudoku *msg, time_t horaInicio)
+void atualizarUICliente(MensagemSudoku *msg, struct timespec horaInicio)
 {
 
     // Limpa o ecrã de forma portável
     limparEcra();
 
-    time_t agora = time(NULL);
-    double tempoDecorrido = difftime(agora, horaInicio);
+    struct timespec agora;
+    clock_gettime(CLOCK_MONOTONIC, &agora);
+    
+    double tempoDecorrido = (agora.tv_sec - horaInicio.tv_sec) + 
+                           (agora.tv_nsec - horaInicio.tv_nsec) / 1e9;
 
     printf("===========================================\n");
     printf("        CLIENTE SUDOKU \n");
     printf("===========================================\n");
     printf(" ID Jogo a decorrer: %d\n", msg->idJogo);
-    printf(" Tempo decorrido   : %.0f segundos\n", tempoDecorrido);
-    printf(" Tarefas           : 1 (Simulação)\n"); // Para a Fase 3, isto será dinâmico
+    printf(" Tempo decorrido   : %.3f segundos\n", tempoDecorrido);
+    
+    int threads = get_num_threads_last_run();
+    if (threads > 0) {
+        printf(" Tarefas           : %d (Paralelo)\n", threads);
+    } else {
+        printf(" Tarefas           : 1 (Simulação/Seq)\n");
+    }
+    
     printf("-------------------------------------------\n\n");
 
     // Reutiliza a função de imprimir o tabuleiro
@@ -166,39 +177,39 @@ void str_cli(FILE *fp, int sockfd, int idCliente)
         memcpy(&msg_jogo_original, &msg_receber, sizeof(MensagemSudoku));
 
         // CAPTURAR A HORA DE INÍCIO
-        time_t horaInicio = time(NULL);
+        struct timespec horaInicio;
+        clock_gettime(CLOCK_MONOTONIC, &horaInicio);
 
-        // ----- PASSO 3: Resolver o jogo (SIMULAÇÃO com UI) -----
+        // ----- PASSO 3: Resolver o jogo (ALGORITMO REAL) -----
         char minha_solucao[82];
         strncpy(minha_solucao, msg_jogo_original.tabuleiro, sizeof(minha_solucao) - 1);
         minha_solucao[sizeof(minha_solucao) - 1] = '\0';
 
-        for (int i = 0; i < 5; i++)
-        {
-            // Usa a cópia segura para desenhar a UI
-            atualizarUICliente(&msg_jogo_original, horaInicio);
-            printf("\nA 'resolver' o tabuleiro (simulação %d/5)...", i + 1);
-            fflush(stdout);
-            sleep(1);
-        }
-
-        for (int i = 0; i < 81; i++)
-        {
-            if (minha_solucao[i] == '0')
-            {
-                minha_solucao[i] = '9';
-                break;
-            }
+        printf("\nA resolver o Sudoku (Backtracking)... ");
+        fflush(stdout);
+        
+        // Chama o solver real (bloqueante)
+        if (resolver_sudoku(minha_solucao, sockfd, idCliente)) {
+            printf("Solução encontrada!\n");
+        } else {
+            printf("Impossível resolver este tabuleiro!\n");
+            // Em caso de falha, envia o tabuleiro incompleto (o servidor dirá que está errado)
         }
 
         // ----- PASSO 4: Enviar a solução -----
-        atualizarUICliente(&msg_jogo_original, horaInicio);
+        // Atualizar UI com a solução encontrada
+        MensagemSudoku msg_solucao_visual;
+        memcpy(&msg_solucao_visual, &msg_jogo_original, sizeof(MensagemSudoku));
+        strncpy(msg_solucao_visual.tabuleiro, minha_solucao, 81);
+        atualizarUICliente(&msg_solucao_visual, horaInicio);
 
         // *** CORREÇÃO: Adicionado \n no fim do printf ***
         printf("\nA enviar solução para o servidor...\n");
         
-        time_t fim = time(NULL);
-        double tempo_resolucao = difftime(fim, horaInicio);
+        struct timespec fim;
+        clock_gettime(CLOCK_MONOTONIC, &fim);
+        double tempo_resolucao = (fim.tv_sec - horaInicio.tv_sec) + 
+                                (fim.tv_nsec - horaInicio.tv_nsec) / 1e9;
         
         // Contar células preenchidas na solução
         int celulas_sol = 0;
@@ -207,7 +218,7 @@ void str_cli(FILE *fp, int sockfd, int idCliente)
         }
         
         snprintf(msg_log, sizeof(msg_log), 
-                 "Solução enviada para Jogo #%d (%d células, tempo: %.0fs)", 
+                 "Solução enviada para Jogo #%d (%d células, tempo: %.3fs)", 
                  msg_jogo_original.idJogo, celulas_sol, tempo_resolucao);
         registarEventoCliente(EVTC_SOLUCAO_ENVIADA, msg_log);
 
@@ -241,7 +252,28 @@ void str_cli(FILE *fp, int sockfd, int idCliente)
 
         // Mostrar o resultado final
         // *** CORREÇÃO: Usa a cópia segura (msg_jogo_original) para desenhar a UI ***
-        atualizarUICliente(&msg_jogo_original, horaInicio);
+        // Mas queremos mostrar o tabuleiro PREENCHIDO, não o original
+        atualizarUICliente(&msg_solucao_visual, horaInicio);
+
+        // VERIFICAR SE JOGO TERMINOU (OUTRO CLIENTE GANHOU)
+        if (msg_receber.tipo == JOGO_TERMINADO) {
+            printf("\n");
+            printf("════════════════════════════════════════\n");
+            printf("   ⚠️  JOGO TERMINADO\n");
+            printf("════════════════════════════════════════\n");
+            printf("Cliente %d encontrou a solução primeiro!\n", msg_receber.idCliente);
+            printf("Resultado: DERROTA 😞\n");
+            printf("════════════════════════════════════════\n");
+            
+            char log_derrota[256];
+            snprintf(log_derrota, sizeof(log_derrota), 
+                     "Derrotado - Cliente %d ganhou o jogo", msg_receber.idCliente);
+            registarEventoCliente(EVTC_JOGO_PERDIDO, log_derrota);
+            
+            // Não perguntar se quer jogar novamente
+            printf("\nA terminar sessão...\n");
+            return;  // Sair da função str_cli
+        }
 
         if (msg_receber.tipo == RESPOSTA_SOLUCAO)
         {
@@ -253,12 +285,12 @@ void str_cli(FILE *fp, int sockfd, int idCliente)
             if (strcmp(msg_receber.resposta, "Certo") == 0) {
                 jogos_ganhos++;  // Incrementar contador de vitórias
                 snprintf(msg_log, sizeof(msg_log), 
-                         "✓ SOLUÇÃO CORRETA! Jogo #%d resolvido em %.0fs", 
+                         "✓ SOLUÇÃO CORRETA! Jogo #%d resolvido em %.3fs", 
                          msg_jogo_original.idJogo, tempo_resolucao);
                 registarEventoCliente(EVTC_SOLUCAO_CORRETA, msg_log);
             } else {
                 snprintf(msg_log, sizeof(msg_log), 
-                         "✗ SOLUÇÃO INCORRETA - Jogo #%d (tempo: %.0fs)", 
+                         "✗ SOLUÇÃO INCORRETA - Jogo #%d (tempo: %.3fs)", 
                          msg_jogo_original.idJogo, tempo_resolucao);
                 registarEventoCliente(EVTC_SOLUCAO_INCORRETA, msg_log);
             }

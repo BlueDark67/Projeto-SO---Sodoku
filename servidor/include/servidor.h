@@ -13,6 +13,9 @@ typedef struct {
     time_t ultimaEntrada;       // Timestamp da última conexão (para timer de agregação)
     int jogoAtual;              // ID do jogo atual sendo jogado (índice no array de jogos)
     int jogoIniciado;           // Flag: 1 = jogo em curso, 0 = aguardando jogadores
+    int jogoTerminado;          // Flag: 1 = alguém já ganhou este jogo
+    int idVencedor;             // PID do cliente vencedor
+    time_t tempoVitoria;        // Timestamp da vitória
     sem_t mutex;                // Proteção para acesso à memória partilhada
     sem_t lobby_semaforo;       // Semáforo para despertar clientes quando jogo inicia
 } DadosPartilhados;

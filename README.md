@@ -109,8 +109,17 @@ PORTA: 8080             # Porta do servidor
 
 # Configuração do Cliente
 ID_CLIENTE: 1           # ID único do cliente
+TIMEOUT_SERVIDOR: 300   # Timeout para operações (segundos)
 LOG: logs/clientes/cliente_1.log  # Ficheiro de log
+
+# Estratégia de Resolução
+NUM_THREADS: 9          # Número de threads paralelas (1-9)
 ```
+
+**Configurações Disponíveis:**
+- `cliente.conf` - Configuração padrão (9 threads)
+- `cliente_A.conf` - Estratégia conservadora (3 threads)
+- `cliente_B.conf` - Estratégia agressiva (9 threads)
 
 ## 📝 Logs
 
@@ -170,25 +179,69 @@ Todo o código inclui **comentários explicativos** sobre:
 - Path resolution
 - Sistema de logging
 
+## 🏆 Modo Competição
+
+O sistema suporta competição justa entre múltiplos clientes:
+
+### Testar Competição
+```bash
+# Terminal 1: Servidor
+./build/servidor config/servidor/server.conf
+
+# Terminal 2: Cliente A (3 threads - conservador)
+./build/cliente config/cliente/cliente_A.conf
+
+# Terminal 3: Cliente B (9 threads - agressivo)
+./build/cliente config/cliente/cliente_B.conf
+```
+
+**Características:**
+- ✅ Apenas 1 vencedor por jogo
+- ✅ Ordem de busca diferente por cliente (PID-based shuffle)
+- ✅ Estratégias diferentes (3 vs 9 threads)
+- ✅ Notificação automática de derrota
+- ✅ Logs detalhados de competição
+
 ## 📚 Documentação
 
 Ver [docs/GUIA_COMPLETO_PROJETO.md](docs/GUIA_COMPLETO_PROJETO.md) para documentação completa.
 
 ## 🧪 Estado Atual
 
+### ✅ Funcionalidades Core
 - ✅ Comunicação Cliente/Servidor (TCP/IP com sockets)
 - ✅ Sistema de Configuração (.conf com validação)
 - ✅ Sistema de Logs (detalhado e formatado)
-- ✅ Sincronização entre clientes (barreira com semáforos)
+- ✅ Sincronização entre clientes (lobby dinâmico 2-10 jogadores)
 - ✅ Verificação de soluções Sudoku
 - ✅ Path resolution automático
 - ✅ Código totalmente documentado
-- ⏳ Solver com threads (simulação implementada)
+
+### 🎮 Sistema de Competição Fair-Play
+- ✅ **Lock Atómico com Double-Check Pattern**
+  - Garantia de vencedor único mesmo com resoluções simultâneas
+  - Verificação atómica usando semáforos
+- ✅ **Threads Configuráveis (1-9)**
+  - Clientes podem usar estratégias diferentes
+  - Configurável via parâmetro NUM_THREADS
+- ✅ **PID-Based Shuffle**
+  - Ordem de busca única por cliente
+  - Variabilidade garantida entre diferentes processos
+- ✅ **Solver Paralelo com Backtracking**
+  - Algoritmo real de resolução de Sudoku
+  - Até 9 threads explorando espaço de busca
+  - Validação remota de blocos 3×3
+
+### 📊 Sistema de Broadcast
+- ✅ Notificação de fim de jogo
+- ✅ Mensagem JOGO_TERMINADO para clientes perdedores
+- ✅ Logs detalhados de vitória/derrota
 
 ## 👥 Autores
 
 Projeto de Sistemas Operativos - Universidade
 
+Guilherme Pedro - nº2124623
+Tiago Alves - nº2144323
+Omar Jesus nº2099223
 ---
-
-**Última atualização:** 31 de Dezembro de 2025

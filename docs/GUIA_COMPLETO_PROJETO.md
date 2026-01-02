@@ -1,8 +1,8 @@
 # 🎓 GUIA COMPLETO DO PROJETO SUDOKU CLIENTE/SERVIDOR
 
-**Data:** 31 de Dezembro de 2025  
 **Disciplina:** Sistemas Operativos  
-**Projeto:** Cliente/Servidor de Sudoku em C
+**Projeto:** Cliente/Servidor de Sudoku em C  
+
 
 ---
 
@@ -847,4 +847,303 @@ Agora tens uma visão completa do projeto!
 
 ---
 
-**Documento gerado automaticamente em 31/12/2025**
+## 🏆 10. SISTEMA DE COMPETIÇÃO FAIR-PLAY (NOVO)
+
+### 10.1 Problema Identificado: Race Condition
+
+**Situação Anterior:**
+- 2 clientes resolvem o mesmo puzzle simultaneamente
+- Ambos enviam solução ao mesmo tempo
+- Servidor marca **ambos** como vencedores
+- Não há vencedor único
+
+**Causa Raiz:**
+```c
+// Cliente A verifica
+if (!dados->jogoTerminado) {  // false
+    // Cliente B verifica ao MESMO TEMPO
+    if (!dados->jogoTerminado) {  // AINDA false!
+        dados->jogoTerminado = 1;  // Ambos marcam
+    }
+}
+```
+
+---
+
+### 10.2 Solução Implementada: Lock Atómico
+
+**Double-Check Pattern em `util-stream-server.c`:**
+
+```c
+if (resultado.correto) {
+    int precisa_marcar = 0;
+    
+    sem_wait(&dados->mutex);  // 🔒 LOCK ATÓMICO
+    
+    // Segunda verificação (agora protegida)
+    if (!dados->jogoTerminado) {
+        dados->jogoTerminado = 1;
+        dados->idVencedor = msg_recebida.idCliente;
+        dados->tempoVitoria = time(NULL);
+        precisa_marcar = 1;
+        
+        printf("🏆 PRIMEIRO VENCEDOR!\n");
+    } else {
+        printf("⏱️ Solução correta mas cliente %d ganhou primeiro\n",
+               dados->idVencedor);
+    }
+    
+    sem_post(&dados->mutex);  // 🔓 UNLOCK
+}
+```
+
+**Garantia:** Apenas 1 cliente entra na seção crítica por vez.
+
+---
+
+### 10.3 Threads Configuráveis
+
+**Problema:** Todos os clientes usam mesma estratégia (9 threads).
+
+**Solução:** Parâmetro `NUM_THREADS` nos ficheiros `.conf`
+
+#### Estrutura em `config_cliente.h`:
+```c
+typedef struct {
+    char ipServidor[50];
+    int idCliente;
+    int porta;
+    int timeoutServidor;
+    char ficheiroLog[100];
+    int numThreads;  // NOVO: 1-9 threads
+} ConfigCliente;
+```
+
+#### Leitura em `config_cliente.c`:
+```c
+else if (strcmp(chave, "NUM_THREADS") == 0) {
+    config->numThreads = atoi(valor_limpo);
+    if (config->numThreads < 1) config->numThreads = 1;
+    if (config->numThreads > 9) config->numThreads = 9;
+}
+```
+
+#### Aplicação em `solver.c`:
+```c
+int resolver_sudoku_paralelo(int tab[9][9], int sockfd, 
+                             int idCliente, int numThreads) {
+    // Identifica candidatos válidos
+    int candidatos[9];
+    int num_candidatos = 0;
+    
+    for (int num = 1; num <= 9; num++) {
+        if (eh_valido(tab, row, col, num)) {
+            candidatos[num_candidatos++] = num;
+        }
+    }
+    
+    // Limita ao número configurado
+    int threads_a_criar = min(num_candidatos, numThreads);
+    
+    // Cria apenas as threads necessárias
+    for (int i = 0; i < threads_a_criar; i++) {
+        pthread_create(&threads[i], NULL, thread_solver, args);
+    }
+}
+```
+
+**Configurações Disponíveis:**
+- `cliente_A.conf`: 3 threads (conservador)
+- `cliente_B.conf`: 9 threads (agressivo)
+- `cliente.conf`: 9 threads (padrão)
+
+---
+
+### 10.4 PID-Based Shuffle
+
+**Problema:** Clientes com mesmo número de threads exploram na mesma ordem.
+
+**Solução:** Embaralhar candidatos usando PID como seed.
+
+#### Implementação em `solver.c`:
+```c
+// Obter candidatos válidos
+int candidatos[9];
+int num_candidatos = 0;
+for (int num = 1; num <= 9; num++) {
+    if (eh_valido(tab, row, col, num)) {
+        candidatos[num_candidatos++] = num;
+    }
+}
+
+// SHUFFLE baseado no PID
+pid_t pid = getpid();
+srand(pid);  // Seed única por processo
+
+// Fisher-Yates shuffle
+for (int i = num_candidatos - 1; i > 0; i--) {
+    int j = rand() % (i + 1);
+    int temp = candidatos[i];
+    candidatos[i] = candidatos[j];
+    candidatos[j] = temp;
+}
+
+printf("[SHUFFLE] PID=%d: Ordem embaralhada: ", pid);
+for (int i = 0; i < num_candidatos; i++) {
+    printf("%d ", candidatos[i]);
+}
+printf("\n");
+```
+
+**Exemplo de Output:**
+```
+[SHUFFLE] PID=12345: Ordem embaralhada: 7 2 9 1 4 6 3 5 8
+[SHUFFLE] PID=12348: Ordem embaralhada: 3 8 1 9 2 5 7 4 6
+```
+
+**Resultado:** Diferentes PIDs → Diferentes ordens → Variabilidade garantida
+
+---
+
+### 10.5 Sistema de Broadcast
+
+**Quando cliente perde:**
+
+#### Servidor envia `JOGO_TERMINADO`:
+```c
+// Em util-stream-server.c (loop de aguardar solução)
+sem_wait(&dados->mutex);
+if (dados->jogoTerminado && dados->idVencedor != meu_id) {
+    int vencedor = dados->idVencedor;
+    sem_post(&dados->mutex);
+    
+    // Notificar derrota
+    MensagemSudoku msg_derrota;
+    msg_derrota.tipo = JOGO_TERMINADO;
+    msg_derrota.idCliente = vencedor;
+    snprintf(msg_derrota.resposta, sizeof(msg_derrota.resposta),
+             "Cliente %d ganhou primeiro!", vencedor);
+    
+    writen(sockfd, &msg_derrota, sizeof(msg_derrota));
+    registarEvento(meu_id, EVT_JOGO_PERDIDO, "Derrotado");
+    goto cleanup_e_sair;
+}
+sem_post(&dados->mutex);
+```
+
+#### Cliente recebe e exibe:
+```c
+// Em util-stream-cliente.c
+if (msg_receber.tipo == JOGO_TERMINADO) {
+    printf("\n");
+    printf("═══════════════════\n");
+    printf("   ⚠️  JOGO TERMINADO\n");
+    printf("═══════════════════\n");
+    printf("Cliente %d encontrou a solução primeiro!\n", 
+           msg_receber.idCliente);
+    printf("Resultado: DERROTA 😞\n");
+    printf("═══════════════════\n");
+    
+    registarEventoCliente(EVTC_JOGO_PERDIDO, "Derrotado");
+    return;  // Encerra sessão
+}
+```
+
+---
+
+### 10.6 Como Testar Competição
+
+#### Terminal 1: Servidor
+```bash
+./build/servidor config/servidor/server.conf
+```
+
+#### Terminal 2: Cliente A (3 threads)
+```bash
+./build/cliente config/cliente/cliente_A.conf
+```
+
+#### Terminal 3: Cliente B (9 threads)
+```bash
+./build/cliente config/cliente/cliente_B.conf
+```
+
+**O que esperar:**
+1. Ambos entram no lobby
+2. Servidor dispara jogo quando 2+ clientes conectados
+3. Ambos recebem o MESMO puzzle
+4. Ordem de busca diferente:
+   ```
+   [SHUFFLE] PID=12345: Ordem: 7 2 9 1 4 6 3 5 8
+   [SHUFFLE] PID=12348: Ordem: 3 8 1 9 2 5 7 4 6
+   ```
+5. Cliente A usa 3 threads, Cliente B usa 9 threads
+6. **Apenas 1 vencedor** declarado:
+   ```
+   [VITÓRIA] 🏆 PRIMEIRO VENCEDOR! Cliente 12348
+   [INFO] ⏱️ Cliente 12345 solução correta mas não foi primeiro
+   ```
+7. Cliente perdedor recebe `JOGO_TERMINADO` e encerra
+
+---
+
+### 10.7 Análise de Logs
+
+#### Servidor (`logs/servidor/server.log`):
+```
+IdUtilizador Hora     Acontecimento         Descrição
+============ ======== ==================    ===========
+12345        10:23:15 Solucao Correta       Solução correta - mas não foi o primeiro
+12348        10:23:15 Solucao Correta       Solução correta - VENCEDOR
+12345        10:23:15 Jogo Perdido          Jogo terminado - Cliente 12348 venceu
+```
+
+#### Cliente Vencedor:
+```
+Data/Hora           Evento       Descrição
+------------------- ------------ -----------
+2026-01-02 10:23:15 ✅ CORRETO   ✅ SOL. CORRETA - Jogo #1
+```
+
+#### Cliente Perdedor:
+```
+Data/Hora           Evento       Descrição
+------------------- ------------ -----------
+2026-01-02 10:23:15 DERROTA      Derrotado - Cliente 12348 ganhou
+```
+
+---
+
+### 10.8 Resumo das Garantias
+
+✅ **Vencedor Único:** Double-check pattern com semáforos  
+✅ **Estratégias Diferentes:** NUM_THREADS configurável (1-9)  
+✅ **Variabilidade:** PID-based shuffle da ordem de busca  
+✅ **Fairness:** Todos recebem o mesmo puzzle simultaneamente  
+✅ **Notificação:** Broadcast de JOGO_TERMINADO aos perdedores  
+✅ **Logs Completos:** Detalhes de vitória/derrota registados  
+
+---
+
+## 🚀 11. MELHORIA CONTÍNUA
+
+### Próximas Evoluções Possíveis:
+
+1. **Critério de Vitória por Eficiência**
+   - Contar validações remotas
+   - Premiar solução com menos validações
+
+2. **Sistema de Pontos**
+   - Melhor de 5 jogos
+   - Ranking de clientes
+
+3. **Dashboard em Tempo Real**
+   - Interface web com progresso
+   - Visualização do espaço de busca
+
+4. **Análise de Performance**
+   - Tempo médio por thread
+   - Taxa de sucesso por estratégia
+
+---
+

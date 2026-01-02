@@ -88,8 +88,12 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
             goto cleanup_e_sair;
         }
         
-        printf("[LOBBY] Cliente pediu jogo. A entrar no lobby...\n");
+        printf("[LOBBY] Cliente %d pediu jogo. A entrar no lobby...\n", msg_recebida.idCliente);
         
+        char log_lobby[256];
+        snprintf(log_lobby, sizeof(log_lobby), "Cliente %d entrou no lobby (Aguardando sincronização)", msg_recebida.idCliente);
+        registarEvento(msg_recebida.idCliente, EVT_CLIENTE_CONECTADO, log_lobby);
+
         /* ====================
          * FASE 3: ENTRAR NO LOBBY E AGUARDAR
          * ==================== */
@@ -98,7 +102,7 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
         dados->ultimaEntrada = time(NULL);
         int lobby_size = dados->numClientesLobby;
         
-        printf("[LOBBY] ⏳ Cliente entrou no lobby (%d aguardando)\n", lobby_size);
+        printf("[LOBBY] ⏳ Cliente %d entrou no lobby (%d aguardando)\n", msg_recebida.idCliente, lobby_size);
         
         // Verificar se deve disparar jogo imediatamente (10 clientes)
         if (dados->numClientesLobby >= 10) {
@@ -107,6 +111,9 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
             // Selecionar jogo aleatório
             dados->jogoAtual = rand() % numJogos;
             dados->jogoIniciado = 1;
+            dados->jogoTerminado = 0;  // Resetar flag de jogo terminado
+            dados->idVencedor = -1;
+            dados->tempoVitoria = 0;
             
             char log_msg[256];
             snprintf(log_msg, sizeof(log_msg), 
@@ -123,6 +130,9 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
         
         // Aguardar no semáforo até jogo ser disparado
         sem_wait(&dados->lobby_semaforo);
+        
+        snprintf(log_lobby, sizeof(log_lobby), "Sincronização concluída! Cliente %d a iniciar jogo", msg_recebida.idCliente);
+        registarEvento(msg_recebida.idCliente, EVT_SERVIDOR_INICIADO, log_lobby);
         
         /* ====================
          * FASE 4: ENVIAR JOGO
@@ -160,36 +170,141 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
         setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
         
         /* ====================
-         * FASE 6: AGUARDAR SOLUÇÃO
+         * FASE 6: AGUARDAR SOLUÇÃO OU VALIDAÇÕES
          * ==================== */
         
-        n = readn(sockfd, (char *)&msg_recebida, sizeof(MensagemSudoku));
-        
-        if (n == 0) {
-            printf("[INFO] Cliente desconectou após jogo\n");
-            goto cleanup_e_sair;
-        }
-        
-        if (n < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                printf("[TIMEOUT] Cliente não respondeu\n");
-                registarEvento(msg_recebida.idCliente, EVT_ERRO_GERAL, "Timeout");
+        int aguardando_solucao = 1;
+        while (aguardando_solucao) {
+            // CRÍTICO: Verificar se jogo já terminou (outro cliente ganhou)
+            sem_wait(&dados->mutex);
+            if (dados->jogoTerminado && dados->idVencedor != msg_recebida.idCliente) {
+                int vencedor = dados->idVencedor;
+                sem_post(&dados->mutex);
+                
+                // Este cliente perdeu! Enviar notificação
+                time_t now = time(NULL);
+                struct tm *t = localtime(&now);
+                printf("\x1b[33m[%02d:%02d:%02d] [%d] [INFO]  ⚠️  Notificando derrota - Cliente %d ganhou\x1b[0m\n", 
+                       t->tm_hour, t->tm_min, t->tm_sec, msg_recebida.idCliente, vencedor);
+                
+                bzero(&msg_resposta, sizeof(MensagemSudoku));
+                msg_resposta.tipo = JOGO_TERMINADO;
+                msg_resposta.idCliente = vencedor;  // Quem ganhou
+                msg_resposta.idJogo = meu_jogo;
+                snprintf(msg_resposta.resposta, sizeof(msg_resposta.resposta),
+                         "Cliente %d ganhou primeiro!", vencedor);
+                writen(sockfd, (char *)&msg_resposta, sizeof(MensagemSudoku));
+                
+                char log_derrota[256];
+                snprintf(log_derrota, sizeof(log_derrota), 
+                         "Jogo terminado - Cliente %d venceu", vencedor);
+                registarEvento(msg_recebida.idCliente, EVT_JOGO_PERDIDO, log_derrota);
+                goto cleanup_e_sair;
             }
-            goto cleanup_e_sair;
-        }
-        
-        if (msg_recebida.tipo != ENVIAR_SOLUCAO) {
-            printf("[ERRO] Tipo inesperado: %d\n", msg_recebida.tipo);
-            goto cleanup_e_sair;
+            sem_post(&dados->mutex);
+            
+            n = readn(sockfd, (char *)&msg_recebida, sizeof(MensagemSudoku));
+            
+            if (n == 0) {
+                printf("[INFO] Cliente desconectou após jogo\n");
+                goto cleanup_e_sair;
+            }
+            
+            if (n < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    printf("[TIMEOUT] Cliente não respondeu\n");
+                    registarEvento(msg_recebida.idCliente, EVT_ERRO_GERAL, "Timeout");
+                }
+                goto cleanup_e_sair;
+            }
+
+            // --- NOVO: Validação Parcial de Blocos ---
+            if (msg_recebida.tipo == VALIDAR_BLOCO) {
+                time_t now = time(NULL);
+                struct tm *t = localtime(&now);
+                
+                // Log de Receção com Cor (Azul para REDE)
+                printf("\x1b[34m[%02d:%02d:%02d] [%d] [REDE]  📩 Recebido pedido VALIDAR_BLOCO (ID: %d)\x1b[0m\n", 
+                       t->tm_hour, t->tm_min, t->tm_sec, 
+                       msg_recebida.idCliente, msg_recebida.bloco_id);
+                
+                // Log para ficheiro
+                char log_msg[128];
+                snprintf(log_msg, sizeof(log_msg), "Pedido de validação para Bloco %d", msg_recebida.bloco_id);
+                registarEvento(msg_recebida.idCliente, EVT_VALIDACAO_BLOCO, log_msg);
+                
+                int bloco_correto = 1;
+                int start_row = (msg_recebida.bloco_id / 3) * 3;
+                int start_col = (msg_recebida.bloco_id % 3) * 3;
+                const char *solucao = jogos[meu_jogo].solucao;
+                
+                int k = 0;
+                for(int r = 0; r < 3; r++) {
+                    for(int c = 0; c < 3; c++) {
+                        int idx = (start_row + r) * 9 + (start_col + c);
+                        int val_solucao = solucao[idx] - '0';
+                        int val_cliente = msg_recebida.conteudo_bloco[k++];
+                        
+                        // Se o cliente enviou um número (não 0) e é diferente da solução
+                        if (val_cliente != 0 && val_cliente != val_solucao) {
+                            bloco_correto = 0;
+                        }
+                    }
+                }
+                
+                bzero(&msg_resposta, sizeof(MensagemSudoku));
+                msg_resposta.tipo = RESPOSTA_BLOCO;
+                msg_resposta.idCliente = msg_recebida.idCliente;
+                msg_resposta.idJogo = meu_jogo;
+                msg_resposta.bloco_id = msg_recebida.bloco_id;
+                
+                if (bloco_correto) {
+                    strcpy(msg_resposta.resposta, "OK");
+                    // Log de Sucesso (Verde)
+                    printf("\x1b[32m[%02d:%02d:%02d] [%d] [JOGO]  ✅ Bloco %d verificado: CORRETO -> A responder OK\x1b[0m\n", 
+                           t->tm_hour, t->tm_min, t->tm_sec, msg_recebida.idCliente, msg_recebida.bloco_id);
+                    
+                    // Log para ficheiro
+                    snprintf(log_msg, sizeof(log_msg), "Bloco %d validado com sucesso", msg_recebida.bloco_id);
+                    registarEvento(msg_recebida.idCliente, EVT_VALIDACAO_BLOCO_OK, log_msg);
+                } else {
+                    strcpy(msg_resposta.resposta, "NOK");
+                    // Log de Erro (Vermelho)
+                    printf("\x1b[31m[%02d:%02d:%02d] [%d] [JOGO]  ❌ Bloco %d verificado: INCORRETO -> A responder NOK\x1b[0m\n", 
+                           t->tm_hour, t->tm_min, t->tm_sec, msg_recebida.idCliente, msg_recebida.bloco_id);
+                           
+                    // Log para ficheiro
+                    snprintf(log_msg, sizeof(log_msg), "Bloco %d inválido", msg_recebida.bloco_id);
+                    registarEvento(msg_recebida.idCliente, EVT_VALIDACAO_BLOCO_NOK, log_msg);
+                }
+                
+                writen(sockfd, (char *)&msg_resposta, sizeof(MensagemSudoku));
+                continue; // Continua à espera da solução final
+            }
+            
+            if (msg_recebida.tipo == ENVIAR_SOLUCAO) {
+                aguardando_solucao = 0; // Sai do loop para verificar solução final
+            } else {
+                printf("[ERRO] Tipo inesperado: %d\n", msg_recebida.tipo);
+                goto cleanup_e_sair;
+            }
         }
         
         /* ====================
          * FASE 7: VERIFICAR SOLUÇÃO
          * ==================== */
         
-        printf("[JOGO] 📝 Cliente enviou solução. A verificar...\n");
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+
+        printf("\x1b[34m[%02d:%02d:%02d] [%d] [REDE]  📩 Recebido pedido ENVIAR_SOLUCAO\x1b[0m\n", 
+               t->tm_hour, t->tm_min, t->tm_sec, msg_recebida.idCliente);
         
-        ResultadoVerificacao resultado = verificarSolucao(msg_recebida.tabuleiro, jogos[meu_jogo].solucao);
+        char log_solucao[256];
+        snprintf(log_solucao, sizeof(log_solucao), "Solução recebida do Cliente %d (A verificar...)", msg_recebida.idCliente);
+        registarEvento(msg_recebida.idCliente, EVT_SOLUCAO_RECEBIDA, log_solucao);
+        
+        ResultadoVerificacao resultado = verificarSolucao(msg_recebida.tabuleiro, jogos[meu_jogo].solucao, jogos[meu_jogo].tabuleiro);
         
         bzero(&msg_resposta, sizeof(MensagemSudoku));
         msg_resposta.tipo = RESPOSTA_SOLUCAO;
@@ -197,13 +312,43 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
         msg_resposta.idJogo = msg_recebida.idJogo;
         
         if (resultado.correto) {
+            // ===== DOUBLE-CHECK PATTERN: LOCK ATÓMICO =====
+            // Primeira verificação SEM lock (rápida)
+            int precisa_marcar = 0;
+            
+            sem_wait(&dados->mutex);
+            // Segunda verificação COM lock (atómica)
+            if (!dados->jogoTerminado) {
+                // Este é o PRIMEIRO vencedor!
+                dados->jogoTerminado = 1;
+                dados->idVencedor = msg_recebida.idCliente;
+                dados->tempoVitoria = time(NULL);
+                precisa_marcar = 1;
+                
+                printf("\x1b[35m[%02d:%02d:%02d] [%d] [VITÓRIA] 🏆 PRIMEIRO VENCEDOR! Outros serão notificados.\x1b[0m\n",
+                       t->tm_hour, t->tm_min, t->tm_sec, msg_recebida.idCliente);
+            } else {
+                // Outro cliente já ganhou (race perdida)
+                printf("\x1b[33m[%02d:%02d:%02d] [%d] [INFO]   ⏱️  Solução correta mas cliente %d ganhou primeiro.\x1b[0m\n",
+                       t->tm_hour, t->tm_min, t->tm_sec, msg_recebida.idCliente, dados->idVencedor);
+            }
+            sem_post(&dados->mutex);
+            // ===== FIM DO DOUBLE-CHECK PATTERN =====
+            
             strncpy(msg_resposta.resposta, "Certo", sizeof(msg_resposta.resposta) - 1);
-            printf("[JOGO] ✅ Solução CORRETA!\n");
-            registarEvento(msg_recebida.idCliente, EVT_SOLUCAO_CORRETA, "Solução correta");
+            
+            if (precisa_marcar) {
+                printf("\x1b[32m[%02d:%02d:%02d] [%d] [WIN]   🏆 SOLUÇÃO ACEITE! Jogo terminado.\x1b[0m\n",
+                       t->tm_hour, t->tm_min, t->tm_sec, msg_recebida.idCliente);
+                registarEvento(msg_recebida.idCliente, EVT_SOLUCAO_CORRETA, "Solução correta - VENCEDOR");
+            } else {
+                registarEvento(msg_recebida.idCliente, EVT_SOLUCAO_CORRETA, "Solução correta - mas não foi o primeiro");
+            }
         } else {
             snprintf(msg_resposta.resposta, sizeof(msg_resposta.resposta), 
                      "Errado (%d erros)", resultado.numerosErrados);
-            printf("[JOGO] ❌ Solução INCORRETA (%d erros)\n", resultado.numerosErrados);
+            printf("\x1b[31m[%02d:%02d:%02d] [%d] [JOGO]  ❌ Solução INCORRETA (%d erros)\x1b[0m\n", 
+                   t->tm_hour, t->tm_min, t->tm_sec, msg_recebida.idCliente, resultado.numerosErrados);
             
             char log_detalhado[256];
             snprintf(log_detalhado, sizeof(log_detalhado), 

@@ -31,7 +31,10 @@ typedef enum {
     PEDIR_JOGO = 1,      // Cliente pede um jogo ao servidor
     ENVIAR_JOGO = 2,     // Servidor envia jogo ao cliente
     ENVIAR_SOLUCAO = 3,  // Cliente envia solução ao servidor
-    RESPOSTA_SOLUCAO = 4 // Servidor responde com verificação
+    RESPOSTA_SOLUCAO = 4,// Servidor responde com verificação
+    VALIDAR_BLOCO = 5,   // Cliente pede validação de um bloco 3x3
+    RESPOSTA_BLOCO = 6,  // Servidor responde sobre o bloco
+    JOGO_TERMINADO = 7   // Servidor informa que jogo acabou (alguém ganhou)
 } TipoMensagem;
 
 /**
@@ -46,6 +49,8 @@ typedef struct {
     int idJogo;         // ID do jogo Sudoku
     char tabuleiro[82]; // Tabuleiro 9x9 (81 dígitos + '\0')
     char resposta[50];  // Resposta do servidor ("Correto", "Incorreto", etc.)
+    int bloco_id;       // ID do bloco (0-8) para validação parcial
+    int conteudo_bloco[9]; // Conteúdo do bloco para validação
 } MensagemSudoku;
 
 #endif

@@ -79,6 +79,9 @@ void* lobby_timer_thread(void* arg) {
                 // Selecionar jogo aleatório
                 dados_global->jogoAtual = rand() % numJogos_global;
                 dados_global->jogoIniciado = 1;
+                dados_global->jogoTerminado = 0;  // Resetar flag de jogo terminado
+                dados_global->idVencedor = -1;
+                dados_global->tempoVitoria = 0;
                 
                 char log_msg[256];
                 snprintf(log_msg, sizeof(log_msg), 
@@ -485,6 +488,9 @@ int main(int argc, char *argv[])
     dados->ultimaEntrada = 0;            // Sem entradas ainda
     dados->jogoAtual = -1;               // Nenhum jogo selecionado
     dados->jogoIniciado = 0;             // Jogo não iniciado
+    dados->jogoTerminado = 0;            // Jogo não terminado
+    dados->idVencedor = -1;              // Sem vencedor ainda
+    dados->tempoVitoria = 0;             // Sem timestamp de vitória
 
     // Inicializa semáforos
     // O '1' no meio significa "partilhado entre processos"
@@ -548,7 +554,10 @@ int main(int argc, char *argv[])
 
         // Regista o IP do cliente que se ligou (útil para o log!)
         char *ip_cliente = inet_ntoa(cli_addr.sin_addr);
-        printf("[LOG] Novo cliente conectado do IP: %s\n", ip_cliente);
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+        printf("\x1b[32m[%02d:%02d:%02d] [CONEXÃO] 🔌 Novo cliente conectado do IP: %s\x1b[0m\n", 
+               t->tm_hour, t->tm_min, t->tm_sec, ip_cliente);
         
         snprintf(log_init, sizeof(log_init), 
                  "Novo cliente conectado de %s (porta %d)", 
@@ -569,7 +578,10 @@ int main(int argc, char *argv[])
             // É AQUI que vais implementar a lógica do protocolo.h
             str_echo(newsockfd, jogos, numJogos, dados, config.maxLinha, config.timeoutCliente);
 
-            printf("[LOG] Cliente %s desconectado.\n", ip_cliente);
+            time_t now_disc = time(NULL);
+            struct tm *t_disc = localtime(&now_disc);
+            printf("\x1b[31m[%02d:%02d:%02d] [CONEXÃO] 🔌 Cliente %s desconectado.\x1b[0m\n", 
+                   t_disc->tm_hour, t_disc->tm_min, t_disc->tm_sec, ip_cliente);
             snprintf(log_init, sizeof(log_init), 
                      "Cliente desconectado: %s", ip_cliente);
             registarEvento(0, EVT_CLIENTE_DESCONECTADO, log_init);
