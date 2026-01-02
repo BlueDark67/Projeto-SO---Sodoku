@@ -111,6 +111,9 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
             // Selecionar jogo aleatório
             dados->jogoAtual = rand() % numJogos;
             dados->jogoIniciado = 1;
+            dados->jogoTerminado = 0;  // Resetar flag de jogo terminado
+            dados->idVencedor = -1;
+            dados->tempoVitoria = 0;
             
             char log_msg[256];
             snprintf(log_msg, sizeof(log_msg), 
@@ -172,6 +175,34 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
         
         int aguardando_solucao = 1;
         while (aguardando_solucao) {
+            // CRÍTICO: Verificar se jogo já terminou (outro cliente ganhou)
+            sem_wait(&dados->mutex);
+            if (dados->jogoTerminado && dados->idVencedor != msg_recebida.idCliente) {
+                int vencedor = dados->idVencedor;
+                sem_post(&dados->mutex);
+                
+                // Este cliente perdeu! Enviar notificação
+                time_t now = time(NULL);
+                struct tm *t = localtime(&now);
+                printf("\x1b[33m[%02d:%02d:%02d] [%d] [INFO]  ⚠️  Notificando derrota - Cliente %d ganhou\x1b[0m\n", 
+                       t->tm_hour, t->tm_min, t->tm_sec, msg_recebida.idCliente, vencedor);
+                
+                bzero(&msg_resposta, sizeof(MensagemSudoku));
+                msg_resposta.tipo = JOGO_TERMINADO;
+                msg_resposta.idCliente = vencedor;  // Quem ganhou
+                msg_resposta.idJogo = meu_jogo;
+                snprintf(msg_resposta.resposta, sizeof(msg_resposta.resposta),
+                         "Cliente %d ganhou primeiro!", vencedor);
+                writen(sockfd, (char *)&msg_resposta, sizeof(MensagemSudoku));
+                
+                char log_derrota[256];
+                snprintf(log_derrota, sizeof(log_derrota), 
+                         "Jogo terminado - Cliente %d venceu", vencedor);
+                registarEvento(msg_recebida.idCliente, EVT_JOGO_PERDIDO, log_derrota);
+                goto cleanup_e_sair;
+            }
+            sem_post(&dados->mutex);
+            
             n = readn(sockfd, (char *)&msg_recebida, sizeof(MensagemSudoku));
             
             if (n == 0) {
@@ -281,6 +312,17 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
         msg_resposta.idJogo = msg_recebida.idJogo;
         
         if (resultado.correto) {
+            // MARCAR JOGO COMO TERMINADO (primeiro a ganhar)
+            sem_wait(&dados->mutex);
+            if (!dados->jogoTerminado) {
+                dados->jogoTerminado = 1;
+                dados->idVencedor = msg_recebida.idCliente;
+                dados->tempoVitoria = time(NULL);
+                printf("\x1b[35m[%02d:%02d:%02d] [%d] [VITÓRIA] 🏆 PRIMEIRO VENCEDOR! Outros serão notificados.\x1b[0m\n",
+                       t->tm_hour, t->tm_min, t->tm_sec, msg_recebida.idCliente);
+            }
+            sem_post(&dados->mutex);
+            
             strncpy(msg_resposta.resposta, "Certo", sizeof(msg_resposta.resposta) - 1);
             printf("\x1b[32m[%02d:%02d:%02d] [%d] [WIN]   🏆 SOLUÇÃO ACEITE! Jogo terminado para este cliente.\x1b[0m\n",
                    t->tm_hour, t->tm_min, t->tm_sec, msg_recebida.idCliente);

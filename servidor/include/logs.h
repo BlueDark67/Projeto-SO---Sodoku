@@ -21,6 +21,7 @@ typedef enum {
     EVT_VALIDACAO_BLOCO = 16,
     EVT_VALIDACAO_BLOCO_OK = 17,
     EVT_VALIDACAO_BLOCO_NOK = 18,
+    EVT_JOGO_PERDIDO = 19,
     EVT_ERRO_GERAL = 99
 } CodigoEvento;
 

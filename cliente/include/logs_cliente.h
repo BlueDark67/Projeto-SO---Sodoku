@@ -16,6 +16,7 @@ typedef enum {
     EVTC_SESSAO_INICIADA = 11,
     EVTC_SESSAO_TERMINADA = 12,
     EVTC_JOGO_NUMERO = 13,
+    EVTC_JOGO_PERDIDO = 14,
     EVTC_ERRO = 99
 } CodigoEventoCliente;
 

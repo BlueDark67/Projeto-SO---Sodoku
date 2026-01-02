@@ -33,7 +33,8 @@ typedef enum {
     ENVIAR_SOLUCAO = 3,  // Cliente envia solução ao servidor
     RESPOSTA_SOLUCAO = 4,// Servidor responde com verificação
     VALIDAR_BLOCO = 5,   // Cliente pede validação de um bloco 3x3
-    RESPOSTA_BLOCO = 6   // Servidor responde sobre o bloco
+    RESPOSTA_BLOCO = 6,  // Servidor responde sobre o bloco
+    JOGO_TERMINADO = 7   // Servidor informa que jogo acabou (alguém ganhou)
 } TipoMensagem;
 
 /**

@@ -79,6 +79,9 @@ void* lobby_timer_thread(void* arg) {
                 // Selecionar jogo aleatório
                 dados_global->jogoAtual = rand() % numJogos_global;
                 dados_global->jogoIniciado = 1;
+                dados_global->jogoTerminado = 0;  // Resetar flag de jogo terminado
+                dados_global->idVencedor = -1;
+                dados_global->tempoVitoria = 0;
                 
                 char log_msg[256];
                 snprintf(log_msg, sizeof(log_msg), 
@@ -485,6 +488,9 @@ int main(int argc, char *argv[])
     dados->ultimaEntrada = 0;            // Sem entradas ainda
     dados->jogoAtual = -1;               // Nenhum jogo selecionado
     dados->jogoIniciado = 0;             // Jogo não iniciado
+    dados->jogoTerminado = 0;            // Jogo não terminado
+    dados->idVencedor = -1;              // Sem vencedor ainda
+    dados->tempoVitoria = 0;             // Sem timestamp de vitória
 
     // Inicializa semáforos
     // O '1' no meio significa "partilhado entre processos"

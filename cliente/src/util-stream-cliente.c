@@ -255,6 +255,26 @@ void str_cli(FILE *fp, int sockfd, int idCliente)
         // Mas queremos mostrar o tabuleiro PREENCHIDO, não o original
         atualizarUICliente(&msg_solucao_visual, horaInicio);
 
+        // VERIFICAR SE JOGO TERMINOU (OUTRO CLIENTE GANHOU)
+        if (msg_receber.tipo == JOGO_TERMINADO) {
+            printf("\n");
+            printf("════════════════════════════════════════\n");
+            printf("   ⚠️  JOGO TERMINADO\n");
+            printf("════════════════════════════════════════\n");
+            printf("Cliente %d encontrou a solução primeiro!\n", msg_receber.idCliente);
+            printf("Resultado: DERROTA 😞\n");
+            printf("════════════════════════════════════════\n");
+            
+            char log_derrota[256];
+            snprintf(log_derrota, sizeof(log_derrota), 
+                     "Derrotado - Cliente %d ganhou o jogo", msg_receber.idCliente);
+            registarEventoCliente(EVTC_JOGO_PERDIDO, log_derrota);
+            
+            // Não perguntar se quer jogar novamente
+            printf("\nA terminar sessão...\n");
+            return;  // Sair da função str_cli
+        }
+
         if (msg_receber.tipo == RESPOSTA_SOLUCAO)
         {
             printf("\n===================================\n");
