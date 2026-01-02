@@ -28,7 +28,7 @@ SERVER_SRCS = $(SERVER_SRC)/main.c $(SERVER_SRC)/config_servidor.c $(SERVER_SRC)
 SERVER_OBJS = $(SERVER_SRCS:.c=.o)
 
 # --- Ficheiros do CLIENTE ---
-CLIENT_SRCS = $(CLIENT_SRC)/main_cliente.c $(CLIENT_SRC)/config_cliente.c $(CLIENT_SRC)/util-stream-cliente.c $(CLIENT_SRC)/logs_cliente.c
+CLIENT_SRCS = $(CLIENT_SRC)/main_cliente.c $(CLIENT_SRC)/config_cliente.c $(CLIENT_SRC)/util-stream-cliente.c $(CLIENT_SRC)/logs_cliente.c $(CLIENT_SRC)/solver.c
 CLIENT_OBJS = $(CLIENT_SRCS:.c=.o)
 
 
@@ -58,7 +58,7 @@ client: $(BUILD_DIR) $(TARGET_CLIENT)
 	@echo "✓ Ficheiros .o removidos"
 
 $(TARGET_CLIENT): $(CLIENT_OBJS) $(COMMON_OBJS)
-	$(CC) $(CFLAGS) -o $(TARGET_CLIENT) $(CLIENT_OBJS) $(COMMON_OBJS)
+	$(CC) $(CFLAGS) -o $(TARGET_CLIENT) $(CLIENT_OBJS) $(COMMON_OBJS) -lpthread
 	@echo "✓ Cliente compilado: $(TARGET_CLIENT)"
 
 

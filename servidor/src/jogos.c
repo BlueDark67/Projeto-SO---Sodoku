@@ -122,21 +122,54 @@ int carregarJogos(const char *ficheiro, Jogo jogos[], int maxJogos) {
     return count;
 }
 
-ResultadoVerificacao verificarSolucao(const char *solucao, const char *solucaoCorreta) {
+ResultadoVerificacao verificarSolucao(const char *solucao, const char *solucaoCorreta, const char *puzzleOriginal) {
     ResultadoVerificacao resultado = {1, 0, 0};
     
-    if (strlen(solucao) != 81 || strlen(solucaoCorreta) != 81) {
+    if (strlen(solucao) != 81) {
         resultado.correto = 0;
         resultado.numerosErrados = 81;
         return resultado;
     }
+
+    // 1. Verificar se a solução respeita o puzzle original (números fixos)
+    int alterouFixo = 0;
+    for (int i = 0; i < 81; i++) {
+        if (puzzleOriginal[i] != '0' && solucao[i] != puzzleOriginal[i]) {
+            alterouFixo = 1;
+            break;
+        }
+    }
+
+    // 2. Verificar se a solução é um Sudoku válido (sem repetições e completo)
+    int valido = validarTabuleiro(solucao);
+    
+    // Verificar se está completo (sem zeros)
+    int completo = 1;
+    for(int i=0; i<81; i++) {
+        if(solucao[i] < '1' || solucao[i] > '9') {
+            completo = 0;
+            break;
+        }
+    }
+
+    // Se respeita o puzzle, é válido e está completo -> SUCESSO
+    if (!alterouFixo && valido && completo) {
+        resultado.correto = 1;
+        resultado.numerosCertos = 81;
+        resultado.numerosErrados = 0;
+        return resultado;
+    }
+
+    // Se falhou, comparamos com a solução canónica para dar feedback detalhado
+    resultado.correto = 0;
+    resultado.numerosCertos = 0;
+    resultado.numerosErrados = 0;
     
     for (int i = 0; i < 81; i++) {
         if (solucao[i] == solucaoCorreta[i]) {
             resultado.numerosCertos++;
         } else {
             resultado.numerosErrados++;
-            resultado.correto = 0;
         }
     }
     

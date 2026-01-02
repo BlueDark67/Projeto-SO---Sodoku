@@ -13,8 +13,8 @@ typedef struct {
 // Carrega jogos do ficheiro
 int carregarJogos(const char *ficheiro, Jogo jogos[], int maxJogos);
 
-// Verifica se uma solução está correta
-ResultadoVerificacao verificarSolucao(const char *solucao, const char *solucaoCorreta);
+// Verifica se uma solução está correta (valida regras e compara com puzzle original)
+ResultadoVerificacao verificarSolucao(const char *solucao, const char *solucaoCorreta, const char *puzzleOriginal);
 
 // Verifica se um tabuleiro é válido (sem números repetidos em linha/coluna/região)
 int validarTabuleiro(const char *tabuleiro);

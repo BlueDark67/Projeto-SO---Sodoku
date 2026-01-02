@@ -153,6 +153,9 @@ const char* obterDescricaoEvento(CodigoEvento evento) {
         case EVT_CLIENTE_DESBLOQUEADO: return "Cliente Desbloqueado";
         case EVT_TIMEOUT_CONFIGURADO: return "Timeout Configurado";
         case EVT_SERVIDOR_ENCERRADO: return "Servidor Encerrado";
+        case EVT_VALIDACAO_BLOCO: return "Validacao Bloco";
+        case EVT_VALIDACAO_BLOCO_OK: return "Bloco OK";
+        case EVT_VALIDACAO_BLOCO_NOK: return "Bloco NOK";
         case EVT_ERRO_GERAL: return "Erro Geral";
         default: return "Evento Desconhecido";
     }
