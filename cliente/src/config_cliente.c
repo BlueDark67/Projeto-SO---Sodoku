@@ -68,6 +68,7 @@ int lerConfigCliente(const char *nomeFicheiro, ConfigCliente *config) {
     config->idCliente = -1;
     config->porta = -1;
     config->timeoutServidor = -1;
+    config->numThreads = -1;  
     config->ipServidor[0] = '\0';
     config->ficheiroLog[0] = '\0';
 
@@ -142,6 +143,11 @@ int lerConfigCliente(const char *nomeFicheiro, ConfigCliente *config) {
             }
             strncpy(config->ficheiroLog, valor_limpo, sizeof(config->ficheiroLog) - 1);
             config->ficheiroLog[sizeof(config->ficheiroLog) - 1] = '\0';
+        } else if (strcmp(chave, "NUM_THREADS") == 0) {
+            config->numThreads = atoi(valor_limpo);
+            // Validar: mínimo 1, máximo 9
+            if (config->numThreads < 1) config->numThreads = 1;
+            if (config->numThreads > 9) config->numThreads = 9;
         }
     }
 

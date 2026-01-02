@@ -27,6 +27,7 @@
 #include "protocolo.h"      // Protocolo de comunicação
 #include "util.h"           // Funções auxiliares de rede
 #include "logs_cliente.h"   // Sistema de logging do cliente
+#include "solver.h"         // Funções do solver (para set_global_num_threads)
 
 // Declaração da função principal de comunicação
 void str_cli(FILE *fp, int sockfd, int idCliente);
@@ -97,10 +98,14 @@ int main(int argc, char *argv[])
     
     printf("   ✓ IP do Servidor: %s\n", config.ipServidor);
     printf("   ✓ Porta: %d\n", config.porta);
+    printf("   ✓ Threads Paralelas: %d\n", config.numThreads);
     
     // Usar PID como ID único do cliente
     int idCliente = getpid();
     printf("   ✓ ID do Cliente (PID): %d\n\n", idCliente);
+    
+    // Configurar número de threads no solver
+    set_global_num_threads(config.numThreads);
     
     // Inicializar logs do cliente com ID baseado em PID
     // Determinar se estamos em build/ ou raiz usando o ficheiro de config como referência

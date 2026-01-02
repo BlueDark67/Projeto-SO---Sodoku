@@ -227,7 +227,7 @@ void *thread_solver(void *arg) {
 /**
  * @brief Solver Paralelo
  */
-int resolver_sudoku_paralelo(int tabuleiro_inicial[9][9], int sockfd, int idCliente) {
+int resolver_sudoku_paralelo(int tabuleiro_inicial[9][9], int sockfd, int idCliente, int numThreads) {
     // Reset das variáveis globais
     solucao_encontrada = 0;
     
@@ -250,40 +250,73 @@ int resolver_sudoku_paralelo(int tabuleiro_inicial[9][9], int sockfd, int idClie
     // Se já estiver resolvido (sem zeros)
     if (!isEmpty) return 1;
 
-    // 2. Identificar candidatos e lançar threads
+    // 2. Identificar candidatos válidos
+    int candidatos[9];
+    int num_candidatos = 0;
+    
+    for (int num = 1; num <= 9; num++) {
+        if (eh_valido_int(tabuleiro_inicial, row, col, num)) {
+            candidatos[num_candidatos++] = num;
+        }
+    }
+    
+    // Se não há candidatos válidos, impossível resolver
+    if (num_candidatos == 0) return 0;
+    
+    // 3. PID-BASED SHUFFLE: Embaralhar ordem dos candidatos baseado no PID
+    // Isto garante que diferentes clientes exploram em ordens diferentes
+    pid_t pid = getpid();
+    srand(pid);  // Seed baseada no PID
+    
+    // Fisher-Yates shuffle
+    for (int i = num_candidatos - 1; i > 0; i--) {
+        int j = rand() % (i + 1);
+        int temp = candidatos[i];
+        candidatos[i] = candidatos[j];
+        candidatos[j] = temp;
+    }
+    
+    printf("[SHUFFLE] PID=%d: Ordem embaralhada: ", pid);
+    for (int i = 0; i < num_candidatos; i++) {
+        printf("%d ", candidatos[i]);
+    }
+    printf("\n");
+    
+    // 4. Limitar número de threads ao configurado
+    int threads_a_criar = (num_candidatos < numThreads) ? num_candidatos : numThreads;
+    
     pthread_t threads[9];
     int num_threads = 0;
 
-    for (int num = 1; num <= 9; num++) {
-        if (eh_valido_int(tabuleiro_inicial, row, col, num)) {
-            // Preparar argumentos
-            ThreadArgs *args = malloc(sizeof(ThreadArgs));
-            args->id = num_threads;
-            memcpy(args->tabuleiro, tabuleiro_inicial, sizeof(args->tabuleiro));
-            args->linha_inicial = row;
-            args->coluna_inicial = col;
-            args->numero_arranque = num;
-            args->sockfd = sockfd; // Passar socket
-            args->idCliente = idCliente; // Passar ID
-            
-            // Criar thread
-            if (pthread_create(&threads[num_threads], NULL, thread_solver, args) == 0) {
-                num_threads++;
-            } else {
-                free(args);
-            }
+    for (int i = 0; i < threads_a_criar; i++) {
+        // Preparar argumentos
+        ThreadArgs *args = malloc(sizeof(ThreadArgs));
+        args->id = num_threads;
+        memcpy(args->tabuleiro, tabuleiro_inicial, sizeof(args->tabuleiro));
+        args->linha_inicial = row;
+        args->coluna_inicial = col;
+        args->numero_arranque = candidatos[i];  // Usar ordem embaralhada
+        args->sockfd = sockfd; // Passar socket
+        args->idCliente = idCliente; // Passar ID
+        
+        // Criar thread
+        if (pthread_create(&threads[num_threads], NULL, thread_solver, args) == 0) {
+            num_threads++;
+        } else {
+            free(args);
         }
     }
     
     last_num_threads = num_threads; // Guardar contagem
 
-    // 3. Esperar pelas threads
-    printf("[PARALELO] %d threads lançadas para a primeira célula vazia (%d, %d).\n", num_threads, row, col);
+    // 5. Esperar pelas threads
+    printf("[PARALELO] %d/%d threads lançadas (limite: %d) para célula (%d, %d).\n", 
+           num_threads, num_candidatos, numThreads, row, col);
     for (int i = 0; i < num_threads; i++) {
         pthread_join(threads[i], NULL);
     }
 
-    // 4. Verificar se alguma encontrou a solução
+    // 6. Verificar se alguma encontrou a solução
     if (solucao_encontrada) {
         memcpy(tabuleiro_inicial, tabuleiro_solucao, sizeof(tabuleiro_solucao));
         return 1;
@@ -294,6 +327,13 @@ int resolver_sudoku_paralelo(int tabuleiro_inicial[9][9], int sockfd, int idClie
 
 int get_num_threads_last_run() {
     return last_num_threads;
+}
+
+// Variável global para armazenar a config (será setada pelo main)
+static int global_num_threads = 9;
+
+void set_global_num_threads(int num) {
+    global_num_threads = num;
 }
 
 /**
@@ -307,10 +347,10 @@ int resolver_sudoku(char *tabuleiro, int sockfd, int idCliente) {
         tabuleiro_int[i/9][i%9] = tabuleiro[i] - '0';
     }
     
-    printf("[DEBUG] A iniciar Solver Paralelo com Validação Remota...\n");
+    printf("[DEBUG] A iniciar Solver Paralelo (max %d threads) com Validação Remota...\n", global_num_threads);
     
-    // CHAMADA AO SOLVER PARALELO (Hardcoded como pedido)
-    int result = resolver_sudoku_paralelo(tabuleiro_int, sockfd, idCliente);
+    // CHAMADA AO SOLVER PARALELO com número de threads configurado
+    int result = resolver_sudoku_paralelo(tabuleiro_int, sockfd, idCliente, global_num_threads);
     
     // Se resolveu, converter de volta
     if (result) {

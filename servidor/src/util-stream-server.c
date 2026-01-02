@@ -312,21 +312,38 @@ void str_echo(int sockfd, Jogo jogos[], int numJogos, DadosPartilhados *dados, i
         msg_resposta.idJogo = msg_recebida.idJogo;
         
         if (resultado.correto) {
-            // MARCAR JOGO COMO TERMINADO (primeiro a ganhar)
+            // ===== DOUBLE-CHECK PATTERN: LOCK ATÓMICO =====
+            // Primeira verificação SEM lock (rápida)
+            int precisa_marcar = 0;
+            
             sem_wait(&dados->mutex);
+            // Segunda verificação COM lock (atómica)
             if (!dados->jogoTerminado) {
+                // Este é o PRIMEIRO vencedor!
                 dados->jogoTerminado = 1;
                 dados->idVencedor = msg_recebida.idCliente;
                 dados->tempoVitoria = time(NULL);
+                precisa_marcar = 1;
+                
                 printf("\x1b[35m[%02d:%02d:%02d] [%d] [VITÓRIA] 🏆 PRIMEIRO VENCEDOR! Outros serão notificados.\x1b[0m\n",
                        t->tm_hour, t->tm_min, t->tm_sec, msg_recebida.idCliente);
+            } else {
+                // Outro cliente já ganhou (race perdida)
+                printf("\x1b[33m[%02d:%02d:%02d] [%d] [INFO]   ⏱️  Solução correta mas cliente %d ganhou primeiro.\x1b[0m\n",
+                       t->tm_hour, t->tm_min, t->tm_sec, msg_recebida.idCliente, dados->idVencedor);
             }
             sem_post(&dados->mutex);
+            // ===== FIM DO DOUBLE-CHECK PATTERN =====
             
             strncpy(msg_resposta.resposta, "Certo", sizeof(msg_resposta.resposta) - 1);
-            printf("\x1b[32m[%02d:%02d:%02d] [%d] [WIN]   🏆 SOLUÇÃO ACEITE! Jogo terminado para este cliente.\x1b[0m\n",
-                   t->tm_hour, t->tm_min, t->tm_sec, msg_recebida.idCliente);
-            registarEvento(msg_recebida.idCliente, EVT_SOLUCAO_CORRETA, "Solução correta");
+            
+            if (precisa_marcar) {
+                printf("\x1b[32m[%02d:%02d:%02d] [%d] [WIN]   🏆 SOLUÇÃO ACEITE! Jogo terminado.\x1b[0m\n",
+                       t->tm_hour, t->tm_min, t->tm_sec, msg_recebida.idCliente);
+                registarEvento(msg_recebida.idCliente, EVT_SOLUCAO_CORRETA, "Solução correta - VENCEDOR");
+            } else {
+                registarEvento(msg_recebida.idCliente, EVT_SOLUCAO_CORRETA, "Solução correta - mas não foi o primeiro");
+            }
         } else {
             snprintf(msg_resposta.resposta, sizeof(msg_resposta.resposta), 
                      "Errado (%d erros)", resultado.numerosErrados);

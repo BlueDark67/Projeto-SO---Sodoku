@@ -32,13 +32,19 @@ int resolver_sudoku(char *tabuleiro, int sockfd, int idCliente);
  * @param tabuleiro_inicial Matriz 9x9 de inteiros
  * @param sockfd Socket para comunicação com servidor
  * @param idCliente ID do cliente para mensagens de protocolo
+ * @param numThreads Número máximo de threads a usar (1-9)
  * @return 1 se encontrou solução, 0 caso contrário
  */
-int resolver_sudoku_paralelo(int tabuleiro_inicial[9][9], int sockfd, int idCliente);
+int resolver_sudoku_paralelo(int tabuleiro_inicial[9][9], int sockfd, int idCliente, int numThreads);
 
 /**
  * @brief Retorna o número de threads usadas na última resolução
  */
 int get_num_threads_last_run();
+
+/**
+ * @brief Define o número global de threads a usar
+ */
+void set_global_num_threads(int num);
 
 #endif

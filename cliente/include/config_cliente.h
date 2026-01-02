@@ -7,6 +7,7 @@ typedef struct {
     int porta;             // Porta do servidor
     int timeoutServidor;   // Timeout para operações de socket com servidor (segundos)
     char ficheiroLog[100]; // Opcional: para o cliente também ter um log
+    int numThreads;        // Número de threads para resolução paralela (1-9)
 } ConfigCliente;
 
 int lerConfigCliente(const char *nomeFicheiro, ConfigCliente *config);
