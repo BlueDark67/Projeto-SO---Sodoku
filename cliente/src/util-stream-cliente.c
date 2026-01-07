@@ -168,6 +168,13 @@ void str_cli(FILE *fp, int sockfd, int idCliente)
         struct timespec horaInicio;
         clock_gettime(CLOCK_MONOTONIC, &horaInicio);
 
+        // *** MOSTRAR O TABULEIRO ORIGINAL ANTES DA RESOLUÇÃO ***
+        printf("\n\033[1;33m╔═══════════════════════════════════════════╗\n");
+        printf("║     TABULEIRO RECEBIDO - JOGO #%d       ║\n", msg_jogo_original.idJogo);
+        printf("╚═══════════════════════════════════════════╝\033[0m\n\n");
+        imprimirTabuleiroCliente(msg_jogo_original.tabuleiro);
+        printf("\n");
+
         // ----- PASSO 3: Resolver o jogo (ALGORITMO REAL) -----
         char minha_solucao[82];
         strncpy(minha_solucao, msg_jogo_original.tabuleiro, sizeof(minha_solucao) - 1);

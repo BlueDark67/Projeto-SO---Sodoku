@@ -4,6 +4,8 @@
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <stdint.h>
+#include <time.h>
 #include "solver.h"
 #include "logs_cliente.h"
 #include "protocolo.h"
@@ -289,7 +291,12 @@ int resolver_sudoku_paralelo(int tabuleiro_inicial[9][9], int sockfd, int idClie
     // 3. PID-BASED SHUFFLE: Embaralhar ordem dos candidatos baseado no PID
     // Isto garante que diferentes clientes exploram em ordens diferentes
     pid_t pid = getpid();
-    srand(pid); // Seed baseada no PID
+    
+    // MELHORAR ENTROPIA: combinar PID + tempo + endereço de memória
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    unsigned int seed = (unsigned int)(pid ^ ts.tv_nsec ^ ((uintptr_t)&seed >> 4));
+    srand(seed);
 
     // Fisher-Yates shuffle
     for (int i = num_candidatos - 1; i > 0; i--)
