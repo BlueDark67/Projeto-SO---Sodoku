@@ -15,7 +15,7 @@ void imprimirTabuleiroCliente(const char *tabuleiro)
 {
     printf("\033[36m");
     printf("    ┌───────┬───────┬───────┐\n");
-    
+
     for (int i = 0; i < 9; i++)
     {
         printf("    │");
@@ -23,23 +23,23 @@ void imprimirTabuleiroCliente(const char *tabuleiro)
         {
             int idx = i * 9 + j;
             char celula = (tabuleiro[idx] == '0') ? '.' : tabuleiro[idx];
-            
+
             if (celula == '.')
                 printf(" \033[2m%c\033[0m\033[36m", celula);
             else
                 printf(" \033[1;33m%c\033[0m\033[36m", celula);
-            
+
             if (j == 2 || j == 5)
                 printf(" │");
         }
         printf(" │\n");
-        
+
         if (i == 2 || i == 5)
         {
             printf("    ├───────┼───────┼───────┤\n");
         }
     }
-    
+
     printf("    └───────┴───────┴───────┘\n");
     printf("\033[0m");
 }
@@ -70,7 +70,7 @@ void atualizarUICliente(MensagemSudoku *msg, struct timespec horaInicio)
     {
         printf("\n");
     }
-    
+
     printf("\n");
 
     // Reutiliza a função de imprimir o tabuleiro
@@ -271,7 +271,7 @@ void str_cli(FILE *fp, int sockfd, int idCliente)
         if (msg_receber.tipo == RESPOSTA_SOLUCAO)
         {
             printf("\033[32mRecebido!\033[0m\n\n");
-            
+
             if (strcmp(msg_receber.resposta, "Certo") == 0)
             {
                 printf("\033[1;32m╔═══════════════════════════════════════════╗\n");
