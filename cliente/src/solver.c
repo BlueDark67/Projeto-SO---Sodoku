@@ -4,6 +4,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h>
+#include "solver.h"
 #include "logs_cliente.h"
 #include "protocolo.h"
 #include "util.h"
