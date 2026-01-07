@@ -41,26 +41,25 @@ $(BUILD_DIR):
 # A regra 'all' (default) compila ambos
 all: $(BUILD_DIR) $(TARGET_SERVER) $(TARGET_CLIENT)
 	@rm -f $(SERVER_OBJS) $(CLIENT_OBJS) $(COMMON_OBJS)
-	@echo "✓ Ficheiros .o removidos"
+	@echo "Ficheiros .o removidos"
 
 # Regra para compilar apenas o SERVIDOR
 server: $(BUILD_DIR) $(TARGET_SERVER)
 	@rm -f $(SERVER_OBJS) $(COMMON_OBJS)
-	@echo "✓ Ficheiros .o removidos"
+	@echo "Ficheiros .o removidos"
 
 $(TARGET_SERVER): $(SERVER_OBJS) $(COMMON_OBJS)
 	$(CC) $(CFLAGS) -o $(TARGET_SERVER) $(SERVER_OBJS) $(COMMON_OBJS) -lpthread
-	@echo "✓ Servidor compilado: $(TARGET_SERVER)"
+	@echo "Servidor compilado: $(TARGET_SERVER)"
 
 # Regra para compilar apenas o CLIENTE
 client: $(BUILD_DIR) $(TARGET_CLIENT)
 	@rm -f $(CLIENT_OBJS) $(COMMON_OBJS)
-	@echo "✓ Ficheiros .o removidos"
+	@echo "Ficheiros .o removidos"
 
 $(TARGET_CLIENT): $(CLIENT_OBJS) $(COMMON_OBJS)
 	$(CC) $(CFLAGS) -o $(TARGET_CLIENT) $(CLIENT_OBJS) $(COMMON_OBJS) -lpthread
-	@echo "✓ Cliente compilado: $(TARGET_CLIENT)"
-
+	@echo "Cliente compilado: $(TARGET_CLIENT)"
 
 # --- Regras de Compilação (.c para .o) ---
 
@@ -83,7 +82,7 @@ $(CLIENT_SRC)/%.o: $(CLIENT_SRC)/%.c
 clean:
 	rm -f $(TARGET_SERVER) $(TARGET_CLIENT) $(COMMON_OBJS) $(SERVER_OBJS) $(CLIENT_OBJS)
 	rm -rf $(BUILD_DIR)
-	@echo "✓ Ficheiros limpos"
+	@echo "Ficheiros limpos"
 
 # Regra para limpar e recompilar tudo
 rebuild: clean all

@@ -1,16 +1,16 @@
 /*
  * cliente/src/config_cliente.c
- * 
+ *
  * Gestão de Configurações do Cliente
- * 
+ *
  * Este módulo lê configurações de ficheiros .conf para o cliente
- * 
+ *
  * Parâmetros suportados:
  * - IP_SERVIDOR: Endereço IP do servidor (formato: xxx.xxx.xxx.xxx)
  * - PORTA: Porta TCP do servidor
  * - ID_CLIENTE: Identificador único deste cliente
  * - LOG: Caminho para ficheiro de log do cliente
- * 
+ *
  * Formato do ficheiro .conf:
  * PARAMETRO: valor
  * Linhas começadas por # são comentários
@@ -24,38 +24,31 @@
 
 #define MAX_LINHA 256
 
-/**
- * @brief Remove espaços em branco (como ' ' ou '\n') do início e fim de uma string.
- */
-static void trim(char *str) {
+static void trim(char *str)
+{
     char *fim;
 
     // Remove espaços do início
-    while (isspace((unsigned char)*str)) str++;
+    while (isspace((unsigned char)*str))
+        str++;
 
     if (*str == 0) // String vazia ou só com espaços
         return;
 
     // Remove espaços do fim
     fim = str + strlen(str) - 1;
-    while (fim > str && isspace((unsigned char)*fim)) fim--;
+    while (fim > str && isspace((unsigned char)*fim))
+        fim--;
 
     // Escreve o novo terminador nulo
     *(fim + 1) = '\0';
 }
 
-/**
- * @brief Lê e valida o ficheiro de configuração do cliente
- * 
- * Carrega configurações de conexão e identificação do cliente
- * 
- * @param nomeFicheiro Caminho para o ficheiro .conf
- * @param config Estrutura onde as configurações serão armazenadas
- * @return 0 em sucesso, -1 em erro
- */
-int lerConfigCliente(const char *nomeFicheiro, ConfigCliente *config) {
+int lerConfigCliente(const char *nomeFicheiro, ConfigCliente *config)
+{
     FILE *f = fopen(nomeFicheiro, "r");
-    if (!f) {
+    if (!f)
+    {
         perror("Erro ao abrir ficheiro de configuração do cliente");
         return -1;
     }
@@ -68,13 +61,14 @@ int lerConfigCliente(const char *nomeFicheiro, ConfigCliente *config) {
     config->idCliente = -1;
     config->porta = -1;
     config->timeoutServidor = -1;
-    config->numThreads = -1;  
+    config->numThreads = -1;
     config->ipServidor[0] = '\0';
     config->ficheiroLog[0] = '\0';
 
     // Processar cada linha do ficheiro
 
-    while (fgets(linha, sizeof(linha), f)) {
+    while (fgets(linha, sizeof(linha), f))
+    {
         linha_num++;
         char chave[100], valor[100];
 
@@ -82,13 +76,15 @@ int lerConfigCliente(const char *nomeFicheiro, ConfigCliente *config) {
         linha[strcspn(linha, "\n")] = 0;
 
         // Ignora linhas vazias ou comentários
-        if (linha[0] == '\0' || linha[0] == '#') {
+        if (linha[0] == '\0' || linha[0] == '#')
+        {
             continue;
         }
 
         // Procura o separador ':'
         char *separador = strchr(linha, ':');
-        if (!separador) {
+        if (!separador)
+        {
             printf("Aviso: Formato inválido na linha %d do config cliente: %s\n", linha_num, linha);
             continue;
         }
@@ -106,48 +102,65 @@ int lerConfigCliente(const char *nomeFicheiro, ConfigCliente *config) {
         char *valor_limpo = valor;
 
         // 1. Remove espaços do início
-        while (isspace((unsigned char)*valor_limpo)) {
+        while (isspace((unsigned char)*valor_limpo))
+        {
             valor_limpo++;
         }
 
         // 2. Remove espaços do fim
         char *fim = valor_limpo + strlen(valor_limpo) - 1;
-        while (fim > valor_limpo && isspace((unsigned char)*fim)) {
+        while (fim > valor_limpo && isspace((unsigned char)*fim))
+        {
             fim--;
         }
         *(fim + 1) = '\0'; // Escreve o novo fim da string
         // --- Fim do NOVO código de limpeza ---
 
         // Atribui os valores à estrutura
-        if (strcmp(chave, "IP_SERVIDOR") == 0) {
-            if (strlen(valor_limpo) >= sizeof(config->ipServidor)) {
-                fprintf(stderr, "ERRO: Valor de IP_SERVIDOR muito longo (máx %zu chars)\n", 
+        if (strcmp(chave, "IP_SERVIDOR") == 0)
+        {
+            if (strlen(valor_limpo) >= sizeof(config->ipServidor))
+            {
+                fprintf(stderr, "ERRO: Valor de IP_SERVIDOR muito longo (máx %zu chars)\n",
                         sizeof(config->ipServidor) - 1);
                 fclose(f);
                 return -1;
             }
             strncpy(config->ipServidor, valor_limpo, sizeof(config->ipServidor) - 1);
             config->ipServidor[sizeof(config->ipServidor) - 1] = '\0';
-        } else if (strcmp(chave, "ID_CLIENTE") == 0) {
+        }
+        else if (strcmp(chave, "ID_CLIENTE") == 0)
+        {
             config->idCliente = atoi(valor);
-        } else if (strcmp(chave, "PORTA") == 0) {
+        }
+        else if (strcmp(chave, "PORTA") == 0)
+        {
             config->porta = atoi(valor);
-        } else if (strcmp(chave, "TIMEOUT_SERVIDOR") == 0) {
+        }
+        else if (strcmp(chave, "TIMEOUT_SERVIDOR") == 0)
+        {
             config->timeoutServidor = atoi(valor_limpo);
-        } else if (strcmp(chave, "LOG") == 0) {
-            if (strlen(valor_limpo) >= sizeof(config->ficheiroLog)) {
-                fprintf(stderr, "ERRO: Valor de LOG muito longo (máx %zu chars)\n", 
+        }
+        else if (strcmp(chave, "LOG") == 0)
+        {
+            if (strlen(valor_limpo) >= sizeof(config->ficheiroLog))
+            {
+                fprintf(stderr, "ERRO: Valor de LOG muito longo (máx %zu chars)\n",
                         sizeof(config->ficheiroLog) - 1);
                 fclose(f);
                 return -1;
             }
             strncpy(config->ficheiroLog, valor_limpo, sizeof(config->ficheiroLog) - 1);
             config->ficheiroLog[sizeof(config->ficheiroLog) - 1] = '\0';
-        } else if (strcmp(chave, "NUM_THREADS") == 0) {
+        }
+        else if (strcmp(chave, "NUM_THREADS") == 0)
+        {
             config->numThreads = atoi(valor_limpo);
             // Validar: mínimo 1, máximo 9
-            if (config->numThreads < 1) config->numThreads = 1;
-            if (config->numThreads > 9) config->numThreads = 9;
+            if (config->numThreads < 1)
+                config->numThreads = 1;
+            if (config->numThreads > 9)
+                config->numThreads = 9;
         }
     }
 
